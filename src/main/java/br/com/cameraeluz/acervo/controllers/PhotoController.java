@@ -72,6 +72,13 @@ public class PhotoController {
             @RequestParam("categoryIds") List<Long> categoryIds) {
 
         try {
+            // 0. Security Check: Validate if the file is actually an image
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest()
+                        .body("Security Error: Only image files (JPEG, PNG, etc.) are allowed.");
+            }
+
             // 1. Resolve Auth User (uploadedBy)
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
             User currentUser = userRepository.findByUsername(username)
