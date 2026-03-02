@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Represents a taxonomic category for organizing photographs within the archive.
+ * Examples include "Nature", "Portrait", or "Architecture".
+ */
 @Entity
 @Table(name = "categories")
 @Data
