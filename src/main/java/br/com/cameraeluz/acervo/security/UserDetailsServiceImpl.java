@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
  * This class is used by Spring Security to load user data from our database during authentication.
  */
 @Service
-public class UserDetailsServiceImpl implements UserDetailsService {
+public class UserDetailsServiceImpl implements org.springframework.security.core.userdetails.UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
