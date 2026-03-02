@@ -1,0 +1,107 @@
+package br.com.cameraeluz.acervo.controllers;
+
+import br.com.cameraeluz.acervo.models.Category;
+import br.com.cameraeluz.acervo.models.ExifData;
+import br.com.cameraeluz.acervo.models.Photo;
+import br.com.cameraeluz.acervo.models.User;
+import br.com.cameraeluz.acervo.repositories.CategoryRepository;
+import br.com.cameraeluz.acervo.repositories.PhotoRepository;
+import br.com.cameraeluz.acervo.repositories.UserRepository;
+import br.com.cameraeluz.acervo.services.FileStorageService;
+import br.com.cameraeluz.acervo.services.MetadataService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * REST Controller for managing high-level Photo entities.
+ * Orchestrates file storage, metadata extraction, and database persistence.
+ */
+@CrossOrigin(origins = "*", maxAge = 3600)
+@RestController
+@RequestMapping("/api/photos")
+public class PhotoController {
+
+    @Autowired
+    private PhotoRepository photoRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
+    @Autowired
+    private MetadataService metadataService;
+
+    /**
+     * Retrieves all photos from the collection.
+     * Access: Authenticated users.
+     */
+    @GetMapping
+    public List<Photo> getAllPhotos() {
+        return photoRepository.findAll();
+    }
+
+    /**
+     * Handles the upload of a new photograph.
+     * This process includes physical storage, automatic EXIF extraction, and DB mapping.
+     * * @param file The image file (Multipart)
+     * @param title Title of the work
+     * @param artisticAuthorName Name of the artist/photographer
+     * @param categoryIds List of IDs for Many-to-Many relationship with Categories
+     * @return ResponseEntity with the saved Photo entity
+     */
+    @PostMapping("/upload")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('EDITOR')")
+    public ResponseEntity<?> uploadPhoto(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam("artisticAuthorName") String artisticAuthorName,
+            @RequestParam("categoryIds") List<Long> categoryIds) {
+
+        try {
+            // 1. Resolve Auth User (uploadedBy)
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            User currentUser = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("Error: Current user not found."));
+
+            // 2. Resolve Multiple Categories (ManyToMany)
+            Set<Category> categories = new HashSet<>(categoryRepository.findAllById(categoryIds));
+
+            // 3. Extract technical metadata automatically via MetadataService
+            ExifData extractedExif = metadataService.extractMetadata(file);
+
+            // 4. Store Physical File and get the unique storage name
+            String storageName = fileStorageService.storeFile(file);
+
+            // 5. Build Photo Object based on your existing professional model
+            Photo photo = new Photo();
+            photo.setTitle(title);
+            photo.setArtisticAuthorName(artisticAuthorName);
+            photo.setUploadedBy(currentUser);
+            photo.setCategories(categories);
+            photo.setExifData(extractedExif);
+            photo.setOriginalFileName(file.getOriginalFilename());
+            photo.setStoragePath(storageName);
+            photo.setCreatedAt(LocalDateTime.now());
+
+            return ResponseEntity.ok(photoRepository.save(photo));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error during upload process: " + e.getMessage());
+        }
+    }
+}
