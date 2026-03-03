@@ -17,6 +17,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import java.util.stream.Collectors;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -60,8 +64,37 @@ public class PhotoController {
      * Access: Authenticated users.
      */
     @GetMapping
-    public List<Photo> getAllPhotos() {
-        return photoRepository.findAll();
+    public List<PhotoResponseDTO> getAllPhotos() {
+        return photoRepository.findAll().stream().map(photo -> {
+
+            // Gera a URL completa para visualização
+            String viewUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/api/photos/view/")
+                    .path(photo.getWebOptimizedPath())
+                    .toUriString();
+
+            // Gera a URL completa para download
+            String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/api/photos/download/")
+                    .path(photo.getStoragePath())
+                    .toUriString();
+
+            // Mapeia apenas os nomes das categorias
+            Set<String> categoryNames = photo.getCategories().stream()
+                    .map(cat -> cat.getName())
+                    .collect(Collectors.toSet());
+
+            return new PhotoResponseDTO(
+                    photo.getId(),
+                    photo.getTitle(),
+                    photo.getArtisticAuthorName(),
+                    categoryNames,
+                    viewUrl,
+                    downloadUrl,
+                    photo.getExifData() != null ? photo.getExifData().getCameraModel() : "Unknown",
+                    photo.getExifData() != null ? photo.getExifData().getCaptureDate() : "Unknown"
+            );
+        }).collect(Collectors.toList());
     }
 
     /**
