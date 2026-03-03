@@ -8,6 +8,7 @@ import br.com.cameraeluz.acervo.repositories.CategoryRepository;
 import br.com.cameraeluz.acervo.repositories.PhotoRepository;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.services.FileStorageService;
+import br.com.cameraeluz.acervo.services.ImageService;
 import br.com.cameraeluz.acervo.services.MetadataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,9 @@ public class PhotoController {
     @Autowired
     private MetadataService metadataService;
 
+    @Autowired
+    private ImageService imageService;
+
     /**
      * Retrieves all photos from the collection.
      * Access: Authenticated users.
@@ -56,7 +60,7 @@ public class PhotoController {
 
     /**
      * Handles the upload of a new photograph.
-     * This process includes physical storage, automatic EXIF extraction, and DB mapping.
+     * This process includes physical storage, automatic EXIF extraction, triggers automatic web optimization. and DB mapping.
      * * @param file The image file (Multipart)
      * @param title Title of the work
      * @param artisticAuthorName Name of the artist/photographer
@@ -93,7 +97,10 @@ public class PhotoController {
             // 4. Store Physical File and get the unique storage name
             String storageName = fileStorageService.storeFile(file);
 
-            // 5. Build Photo Object based on your existing professional model
+            // 5. Generate Web-Optimized Version (Automatic Resizing)
+            String optimizedName = imageService.generateWebOptimizedVersion(storageName);
+
+            // 6. Build Photo Object based on your existing professional model
             Photo photo = new Photo();
             photo.setTitle(title);
             photo.setArtisticAuthorName(artisticAuthorName);
@@ -102,6 +109,7 @@ public class PhotoController {
             photo.setExifData(extractedExif);
             photo.setOriginalFileName(file.getOriginalFilename());
             photo.setStoragePath(storageName);
+            photo.setWebOptimizedPath(optimizedName);
             photo.setCreatedAt(LocalDateTime.now());
 
             return ResponseEntity.ok(photoRepository.save(photo));
