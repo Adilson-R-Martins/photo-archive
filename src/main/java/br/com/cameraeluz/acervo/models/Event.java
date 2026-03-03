@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.models;
 
+import br.com.cameraeluz.acervo.models.enums.EventType;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,10 +23,11 @@ public class Event {
     private String name;
 
     /**
-     * Type of event (e.g., Contest, Exhibition).
+     * Type of event (Contest or Exhibition).
      */
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String type;
+    private EventType type;
 
     private String complement;
     private String affiliation;
