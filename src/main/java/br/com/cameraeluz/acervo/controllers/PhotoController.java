@@ -10,7 +10,9 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.ImageService;
 import br.com.cameraeluz.acervo.services.MetadataService;
+import br.com.cameraeluz.acervo.specs.PhotoSpecifications;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -190,5 +192,62 @@ public class PhotoController {
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition + "; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
+    }
+
+    @GetMapping
+    public List<PhotoResponseDTO> getPhotos(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long authorId,
+            @RequestParam(required = false) Integer year) {
+
+        Specification<Photo> spec = Specification.where(PhotoSpecifications.hasCategory(categoryId))
+                .and(PhotoSpecifications.hasAuthor(authorId))
+                .and(PhotoSpecifications.fromEventYear(year));
+
+        return photoRepository.findAll(spec).stream()
+                .map(this::convertToDTO) // Usa a lógica de DTO que discutimos
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Helper method to convert a Photo entity to a PhotoResponseDTO.
+     * Encapsulates URL generation and data flattening logic.
+     */
+    private PhotoResponseDTO convertToDTO(Photo photo) {
+        // 1. Generate absolute URL for web-optimized view
+        String viewUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/photos/view/")
+                .path(photo.getWebOptimizedPath())
+                .toUriString();
+
+        // 2. Generate absolute URL for high-res download
+        String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/photos/download/")
+                .path(photo.getStoragePath())
+                .toUriString();
+
+        // 3. Map category entities to a simple set of names
+        Set<String> categoryNames = photo.getCategories().stream()
+                .map(Category::getName)
+                .collect(Collectors.toSet());
+
+        // 4. Extract EXIF safely (check for null to avoid NullPointerException)
+        String camera = "Unknown";
+        String captureDate = "Unknown";
+        if (photo.getExifData() != null) {
+            camera = photo.getExifData().getCameraModel();
+            captureDate = photo.getExifData().getCaptureDate();
+        }
+
+        return new PhotoResponseDTO(
+                photo.getId(),
+                photo.getTitle(),
+                photo.getArtisticAuthorName(),
+                categoryNames,
+                viewUrl,
+                downloadUrl,
+                camera,
+                captureDate
+        );
     }
 }
