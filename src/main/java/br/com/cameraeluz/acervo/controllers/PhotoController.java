@@ -10,7 +10,7 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.ImageService;
 import br.com.cameraeluz.acervo.services.MetadataService;
-import br.com.cameraeluz.acervo.specs.PhotoSpecifications;
+import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
