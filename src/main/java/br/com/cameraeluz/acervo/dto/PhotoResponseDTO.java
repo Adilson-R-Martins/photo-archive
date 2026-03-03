@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.dto;
 
+import br.com.cameraeluz.acervo.models.ExifData;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import java.util.Set;
@@ -17,6 +18,7 @@ public class PhotoResponseDTO {
     private Set<String> categories; // Apenas os nomes das categorias
     private String viewUrl;         // URL completa para a tag <img>
     private String downloadUrl;     // URL completa para o botão de download
-    private String cameraModel;     // Resumo do EXIF
-    private String captureDate;
+
+    // Objeto completo
+    private ExifData metadata;
 }

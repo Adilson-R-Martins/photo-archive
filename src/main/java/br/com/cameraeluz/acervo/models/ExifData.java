@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.models;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.Data;
 
@@ -13,4 +14,11 @@ public class ExifData {
     private String shutterSpeed;
     private String iso;
     private String captureDate;
+
+    // IPTC / Software
+    private String software; // Ex: Adobe Photoshop Lightroom
+    private String copyright; // Ex: © Adilson Martins
+
+    @Column(columnDefinition = "TEXT")
+    private String keywords; // Ex: Natureza, Pássaro, Macro (IPTC)
 }

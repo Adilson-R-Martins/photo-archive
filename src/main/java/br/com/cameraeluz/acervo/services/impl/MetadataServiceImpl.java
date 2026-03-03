@@ -6,6 +6,7 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.iptc.IptcDirectory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,21 +26,27 @@ public class MetadataServiceImpl implements MetadataService {
         try (InputStream is = file.getInputStream()) {
             Metadata metadata = ImageMetadataReader.readMetadata(is);
 
-            // Extract Camera Model
-            ExifIFD0Directory ifd0Dir = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            if (ifd0Dir != null) {
-                exifData.setCameraModel(ifd0Dir.getString(ExifIFD0Directory.TAG_MODEL));
-            }
-
-            // Extract Technical Specs
+            // 1. Technical Data (Camera Model, Aperture, Lens, ISO, etc.)
             ExifSubIFDDirectory subIfdDir = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
             if (subIfdDir != null) {
+                exifData.setCameraModel(subIfdDir.getString(ExifSubIFDDirectory.TAG_MODEL));
                 exifData.setLens(subIfdDir.getString(ExifSubIFDDirectory.TAG_LENS_MODEL));
                 exifData.setAperture(subIfdDir.getString(ExifSubIFDDirectory.TAG_FNUMBER));
-                exifData.setIso(subIfdDir.getString(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT));
                 exifData.setShutterSpeed(subIfdDir.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME));
+                exifData.setIso(subIfdDir.getString(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT));
                 exifData.setFocalLength(subIfdDir.getString(ExifSubIFDDirectory.TAG_FOCAL_LENGTH));
                 exifData.setCaptureDate(subIfdDir.getString(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL));
+            }
+
+            // 3. IPTC Data (Copyright and Keywords)
+            IptcDirectory iptcDir = metadata.getFirstDirectoryOfType(IptcDirectory.class);
+            if (iptcDir != null) {
+                exifData.setCopyright(iptcDir.getString(IptcDirectory.TAG_COPYRIGHT_NOTICE));
+
+                String[] keywords = iptcDir.getStringArray(IptcDirectory.TAG_KEYWORDS);
+                if (keywords != null) {
+                    exifData.setKeywords(String.join(", ", keywords));
+                }
             }
         } catch (Exception e) {
             // Log the error and return empty exifData to avoid crashing the upload

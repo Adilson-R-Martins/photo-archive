@@ -213,8 +213,7 @@ public class PhotoController {
                 categoryNames,
                 viewUrl,
                 downloadUrl,
-                camera,
-                captureDate
+                photo.getExifData()
         );
     }
 }
