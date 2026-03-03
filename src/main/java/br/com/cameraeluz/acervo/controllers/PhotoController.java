@@ -62,44 +62,6 @@ public class PhotoController {
     private ImageService imageService;
 
     /**
-     * Retrieves all photos from the collection.
-     * Access: Authenticated users.
-     */
-    @GetMapping
-    public List<PhotoResponseDTO> getAllPhotos() {
-        return photoRepository.findAll().stream().map(photo -> {
-
-            // Gera a URL completa para visualização
-            String viewUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/api/photos/view/")
-                    .path(photo.getWebOptimizedPath())
-                    .toUriString();
-
-            // Gera a URL completa para download
-            String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/api/photos/download/")
-                    .path(photo.getStoragePath())
-                    .toUriString();
-
-            // Mapeia apenas os nomes das categorias
-            Set<String> categoryNames = photo.getCategories().stream()
-                    .map(cat -> cat.getName())
-                    .collect(Collectors.toSet());
-
-            return new PhotoResponseDTO(
-                    photo.getId(),
-                    photo.getTitle(),
-                    photo.getArtisticAuthorName(),
-                    categoryNames,
-                    viewUrl,
-                    downloadUrl,
-                    photo.getExifData() != null ? photo.getExifData().getCameraModel() : "Unknown",
-                    photo.getExifData() != null ? photo.getExifData().getCaptureDate() : "Unknown"
-            );
-        }).collect(Collectors.toList());
-    }
-
-    /**
      * Handles the upload of a new photograph.
      * This process includes physical storage, automatic EXIF extraction, triggers automatic web optimization. and DB mapping.
      * * @param file The image file (Multipart)
@@ -194,44 +156,49 @@ public class PhotoController {
                 .body(resource);
     }
 
+    /**
+     * Retrieves photos with dynamic filtering.
+     * If no parameters are provided, it returns all photos.
+     * * @param categoryId Filter by Category ID (Optional)
+     * @param authorId   Filter by User ID / Author (Optional)
+     * @param year       Filter by Event Year (Optional)
+     * @return List of PhotoResponseDTO
+     */
     @GetMapping
     public List<PhotoResponseDTO> getPhotos(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long authorId,
             @RequestParam(required = false) Integer year) {
 
+        // 1. Build dynamic specification based on provided filters
         Specification<Photo> spec = Specification.where(PhotoSpecifications.hasCategory(categoryId))
                 .and(PhotoSpecifications.hasAuthor(authorId))
                 .and(PhotoSpecifications.fromEventYear(year));
 
+        // 2. Fetch from DB using specs and convert each to DTO
         return photoRepository.findAll(spec).stream()
-                .map(this::convertToDTO) // Usa a lógica de DTO que discutimos
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
     /**
      * Helper method to convert a Photo entity to a PhotoResponseDTO.
-     * Encapsulates URL generation and data flattening logic.
      */
     private PhotoResponseDTO convertToDTO(Photo photo) {
-        // 1. Generate absolute URL for web-optimized view
         String viewUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/photos/view/")
                 .path(photo.getWebOptimizedPath())
                 .toUriString();
 
-        // 2. Generate absolute URL for high-res download
         String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/photos/download/")
                 .path(photo.getStoragePath())
                 .toUriString();
 
-        // 3. Map category entities to a simple set of names
         Set<String> categoryNames = photo.getCategories().stream()
                 .map(Category::getName)
                 .collect(Collectors.toSet());
 
-        // 4. Extract EXIF safely (check for null to avoid NullPointerException)
         String camera = "Unknown";
         String captureDate = "Unknown";
         if (photo.getExifData() != null) {
