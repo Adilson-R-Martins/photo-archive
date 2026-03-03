@@ -48,6 +48,9 @@ public class Photo {
     )
     private Set<Category> categories;
 
+    @OneToMany(mappedBy = "photo")
+    private Set<PhotoEventTrack> eventTracks;
+
     @Embedded
     private ExifData exifData;
 
