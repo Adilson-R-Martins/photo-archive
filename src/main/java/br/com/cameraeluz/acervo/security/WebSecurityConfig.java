@@ -45,7 +45,6 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers("/error").permitAll()
-                                .anyRequest().authenticated()
                                 .requestMatchers("/api/photos/view/**").permitAll()
                                 .anyRequest().authenticated()
                 );
