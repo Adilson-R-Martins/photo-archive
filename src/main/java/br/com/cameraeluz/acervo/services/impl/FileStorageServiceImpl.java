@@ -16,6 +16,10 @@ import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import java.net.MalformedURLException;
+
 /**
  * Implementation of the FileStorageService handling local file system storage.
  * Ensures directory creation, file name uniqueness (UUID), and security validation.
@@ -24,20 +28,26 @@ import java.util.UUID;
 public class FileStorageServiceImpl implements FileStorageService {
 
     private final Path fileStorageLocation;
+    private final Path optimizedStorageLocation;
 
-    public FileStorageServiceImpl(@Value("${photoarchive.app.upload-dir}") String uploadDir) {
+    public FileStorageServiceImpl(
+            @Value("${photoarchive.app.upload-dir}") String uploadDir,
+            @Value("${photoarchive.app.optimized-dir}") String optimizedDir) {
+
         this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.optimizedStorageLocation = Paths.get(optimizedDir).toAbsolutePath().normalize();
     }
 
     /**
-     * Initializes the storage directory on application startup.
+     * Initializes the storage directories on application startup.
      */
     @PostConstruct
     public void init() {
         try {
             Files.createDirectories(this.fileStorageLocation);
+            Files.createDirectories(this.optimizedStorageLocation);
         } catch (Exception ex) {
-            throw new FileStorageException("Could not create the directory where the uploaded files will be stored.", ex);
+            throw new FileStorageException("Could not create the directories where the uploaded files will be stored.", ex);
         }
     }
 
@@ -69,6 +79,25 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         } catch (IOException ex) {
             throw new FileStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
+        }
+    }
+
+    @Override
+    public Resource loadFileAsResource(String fileName, boolean isOptimized) {
+        try {
+            Path filePath = isOptimized
+                    ? Paths.get(this.optimizedStorageLocation.toString()).resolve(fileName).normalize()
+                    : this.fileStorageLocation.resolve(fileName).normalize();
+
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (resource.exists()) {
+                return resource;
+            } else {
+                throw new FileStorageException("File not found: " + fileName);
+            }
+        } catch (MalformedURLException ex) {
+            throw new FileStorageException("File not found: " + fileName, ex);
         }
     }
 }

@@ -17,6 +17,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -118,5 +124,38 @@ public class PhotoController {
             return ResponseEntity.internalServerError()
                     .body("Error during upload process: " + e.getMessage());
         }
+    }
+
+    /**
+     * Streams the web-optimized version of an image for browser display.
+     */
+    @GetMapping("/view/{fileName:.+}")
+    public ResponseEntity<Resource> viewPhoto(@PathVariable String fileName, HttpServletRequest request) {
+        Resource resource = fileStorageService.loadFileAsResource(fileName, true);
+        return getResourceResponseEntity(resource, request, "inline");
+    }
+
+    /**
+     * Downloads the original high-resolution file.
+     */
+    @GetMapping("/download/{fileName:.+}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('EDITOR')") // Example: Restrict high-res downloads
+    public ResponseEntity<Resource> downloadPhoto(@PathVariable String fileName, HttpServletRequest request) {
+        Resource resource = fileStorageService.loadFileAsResource(fileName, false);
+        return getResourceResponseEntity(resource, request, "attachment");
+    }
+
+    private ResponseEntity<Resource> getResourceResponseEntity(Resource resource, HttpServletRequest request, String contentDisposition) {
+        String contentType = null;
+        try {
+            contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
+        } catch (IOException ex) {
+            contentType = "application/octet-stream";
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition + "; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
     }
 }
