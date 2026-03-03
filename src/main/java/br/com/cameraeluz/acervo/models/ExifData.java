@@ -21,4 +21,7 @@ public class ExifData {
 
     @Column(columnDefinition = "TEXT")
     private String keywords; // Ex: Natureza, Pássaro, Macro (IPTC)
+
+    @Column(columnDefinition = "TEXT")
+    private String description; // Novo campo para IPTC Description/Caption
 }

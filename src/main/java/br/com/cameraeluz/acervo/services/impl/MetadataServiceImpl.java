@@ -26,10 +26,22 @@ public class MetadataServiceImpl implements MetadataService {
         try (InputStream is = file.getInputStream()) {
             Metadata metadata = ImageMetadataReader.readMetadata(is);
 
-            // 1. Technical Data (Camera Model, Aperture, Lens, ISO, etc.)
+            // --- 1. EXIF IFD0 (Onde geralmente moram o Modelo e o Software) ---
+            ExifIFD0Directory ifd0Dir = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            if (ifd0Dir != null) {
+                // Tentativa 1 para Modelo
+                exifData.setCameraModel(ifd0Dir.getString(ExifIFD0Directory.TAG_MODEL));
+                // Tentativa para Software
+                exifData.setSoftware(ifd0Dir.getString(ExifIFD0Directory.TAG_SOFTWARE));
+            }
+
+            // --- 2. EXIF SubIFD (Dados técnicos e Fallback de Modelo) ---
             ExifSubIFDDirectory subIfdDir = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
             if (subIfdDir != null) {
-                exifData.setCameraModel(subIfdDir.getString(ExifSubIFDDirectory.TAG_MODEL));
+                // Se o modelo ainda for nulo, tenta pegar do SubIFD
+                if (exifData.getCameraModel() == null) {
+                    exifData.setCameraModel(subIfdDir.getString(ExifSubIFDDirectory.TAG_MODEL));
+                }
                 exifData.setLens(subIfdDir.getString(ExifSubIFDDirectory.TAG_LENS_MODEL));
                 exifData.setAperture(subIfdDir.getString(ExifSubIFDDirectory.TAG_FNUMBER));
                 exifData.setShutterSpeed(subIfdDir.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME));
@@ -38,10 +50,11 @@ public class MetadataServiceImpl implements MetadataService {
                 exifData.setCaptureDate(subIfdDir.getString(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL));
             }
 
-            // 3. IPTC Data (Copyright and Keywords)
+            // --- 3. IPTC (Copyright, Keywords e Description) ---
             IptcDirectory iptcDir = metadata.getFirstDirectoryOfType(IptcDirectory.class);
             if (iptcDir != null) {
                 exifData.setCopyright(iptcDir.getString(IptcDirectory.TAG_COPYRIGHT_NOTICE));
+                exifData.setDescription(iptcDir.getString(IptcDirectory.TAG_CAPTION)); // This is the "Description"
 
                 String[] keywords = iptcDir.getStringArray(IptcDirectory.TAG_KEYWORDS);
                 if (keywords != null) {
