@@ -36,9 +36,9 @@ public class PhotoEventTrack {
      * The official result achieved (e.g., 1st Place, Acceptance).
      * Managed by the administrator through the ResultType entity.
      */
-    @ManyToOne
-    @JoinColumn(name = "result_type_id")
-    private ResultType result;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "result_type_id", nullable = false)
+    private ResultType resultType;
 
     /**
      * Specific honors received (e.g., Gold Medal, Ribbon).
