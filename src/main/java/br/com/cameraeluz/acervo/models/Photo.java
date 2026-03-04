@@ -1,8 +1,10 @@
 package br.com.cameraeluz.acervo.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -48,6 +50,7 @@ public class Photo {
     )
     private Set<Category> categories;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "photo")
     private Set<PhotoEventTrack> eventTracks;
 

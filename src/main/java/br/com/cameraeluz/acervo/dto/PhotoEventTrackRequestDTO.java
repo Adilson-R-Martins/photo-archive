@@ -13,4 +13,7 @@ public class PhotoEventTrackRequestDTO {
 
     @NotNull(message = "ID do tipo de resultado é obrigatório.")
     private Long resultTypeId;
+
+    private String honor;
+    private String notes;
 }
