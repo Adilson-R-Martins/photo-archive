@@ -1,52 +1,68 @@
 package br.com.cameraeluz.acervo.repositories.specs;
 
-import br.com.cameraeluz.acervo.models.Category;
-import br.com.cameraeluz.acervo.models.Event;
 import br.com.cameraeluz.acervo.models.Photo;
 import br.com.cameraeluz.acervo.models.PhotoEventTrack;
 import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Technical Specification for dynamic photo filtering.
+ * Implements industry standards for complex, multi-parameter searching.
+ */
 public class PhotoSpecifications {
 
     /**
-     * Filters photos by category ID using a Join.
+     * Builds a dynamic query based on provided filters.
+     * @param authorId Search by photographer ID.
+     * @param eventId Search by specific event participation.
+     * @param resultTypeId Search by specific award/result.
+     * @param keyword Global search in title and technical metadata.
+     * @return Specification for JPA execution.
      */
-    public static Specification<Photo> hasCategory(Long categoryId) {
+    public static Specification<Photo> withAdvancedFilters(
+            Long authorId,
+            Long eventId,
+            Long resultTypeId,
+            String keyword) {
+
         return (root, query, cb) -> {
-            if (categoryId == null) return null;
-            // Fazemos um join com a tabela de categorias e filtramos pelo ID
-            Join<Photo, Category> categoriesJoin = root.join("categories");
-            return cb.equal(categoriesJoin.get("id"), categoryId);
-        };
-    }
+            List<Predicate> predicates = new ArrayList<>();
 
-    /**
-     * Filters photos by author (User) ID.
-     */
-    public static Specification<Photo> hasAuthor(Long userId) {
-        return (root, query, cb) -> {
-            if (userId == null) return null;
-            // Join com a entidade User (uploadedBy) e filtramos pelo ID
-            return cb.equal(root.get("uploadedBy").get("id"), userId);
-        };
-    }
+            // 1. Author Filter
+            if (authorId != null) {
+                predicates.add(cb.equal(root.get("uploadedBy").get("id"), authorId));
+            }
 
-    /**
-     * Filters photos by the year of the associated event.
-     */
-    public static Specification<Photo> fromEventYear(Integer year) {
-        return (root, query, cb) -> {
-            if (year == null) return null;
+            // 2. Traceability Filters (Join with Event Tracks)
+            if (eventId != null || resultTypeId != null) {
+                Join<Photo, PhotoEventTrack> trackJoin = root.join("eventTracks", JoinType.INNER);
 
-            // 1. Join Photo -> PhotoEventTrack (nome do campo na classe Photo)
-            Join<Photo, PhotoEventTrack> eventTrackJoin = root.join("eventTracks");
+                if (eventId != null) {
+                    predicates.add(cb.equal(trackJoin.get("event").get("id"), eventId));
+                }
 
-            // 2. Join PhotoEventTrack -> Event (nome do campo na classe PhotoEventTrack)
-            Join<PhotoEventTrack, Event> eventJoin = eventTrackJoin.join("event");
+                if (resultTypeId != null) {
+                    predicates.add(cb.equal(trackJoin.get("resultType").get("id"), resultTypeId));
+                }
+            }
 
-            // 3. Extrai o ano da data do evento usando a função SQL YEAR
-            return cb.equal(cb.function("YEAR", Integer.class, eventJoin.get("eventDate")), year);
+            // 3. Global Metadata Search (OR condition for multiple fields)
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                String pattern = "%" + keyword.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), pattern),
+                        cb.like(cb.lower(root.get("exifData").get("cameraModel")), pattern),
+                        cb.like(cb.lower(root.get("exifData").get("lens")), pattern)
+                ));
+            }
+
+            query.distinct(true); // Avoid duplicates due to joins
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 }

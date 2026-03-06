@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.controllers;
 
+import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import br.com.cameraeluz.acervo.models.Category;
 import br.com.cameraeluz.acervo.models.ExifData;
 import br.com.cameraeluz.acervo.models.Photo;
@@ -7,32 +8,29 @@ import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.repositories.CategoryRepository;
 import br.com.cameraeluz.acervo.repositories.PhotoRepository;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
+import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.ImageService;
 import br.com.cameraeluz.acervo.services.MetadataService;
-import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import java.util.stream.Collectors;
 
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * REST Controller for managing high-level Photo entities.
@@ -157,63 +155,57 @@ public class PhotoController {
     }
 
     /**
-     * Retrieves photos with dynamic filtering.
-     * If no parameters are provided, it returns all photos.
-     * * @param categoryId Filter by Category ID (Optional)
-     * @param authorId   Filter by User ID / Author (Optional)
-     * @param year       Filter by Event Year (Optional)
-     * @return List of PhotoResponseDTO
+     * Unified search endpoint for the photo archive.
+     * Replaces the old getPhotos to support advanced filtering (events, awards, and metadata).
      */
     @GetMapping
-    public List<PhotoResponseDTO> getPhotos(
-            @RequestParam(required = false) Long categoryId,
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    public ResponseEntity<List<PhotoResponseDTO>> searchPhotos(
             @RequestParam(required = false) Long authorId,
-            @RequestParam(required = false) Integer year) {
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long resultTypeId,
+            @RequestParam(required = false) String keyword) {
 
-        // 1. Build dynamic specification based on provided filters
-        Specification<Photo> spec = Specification.where(PhotoSpecifications.hasCategory(categoryId))
-                .and(PhotoSpecifications.hasAuthor(authorId))
-                .and(PhotoSpecifications.fromEventYear(year));
+        // Uses the new Specification that handles all filters simultaneously
+        Specification<Photo> spec = PhotoSpecifications.withAdvancedFilters(
+                authorId, eventId, resultTypeId, keyword);
 
-        // 2. Fetch from DB using specs and convert each to DTO
-        return photoRepository.findAll(spec).stream()
+        List<PhotoResponseDTO> response = photoRepository.findAll(spec).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+
+        return ResponseEntity.ok(response);
     }
 
-    /**
-     * Helper method to convert a Photo entity to a PhotoResponseDTO.
-     */
     private PhotoResponseDTO convertToDTO(Photo photo) {
+        // Generate full URLs for the frontend
         String viewUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/view/")
-                .path(photo.getWebOptimizedPath())
-                .toUriString();
+                .path("/api/photos/view/").path(photo.getWebOptimizedPath()).toUriString();
 
         String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/download/")
-                .path(photo.getStoragePath())
-                .toUriString();
+                .path("/api/photos/download/").path(photo.getStoragePath()).toUriString();
 
-        Set<String> categoryNames = photo.getCategories().stream()
-                .map(Category::getName)
-                .collect(Collectors.toSet());
+        PhotoResponseDTO dto = new PhotoResponseDTO();
+        dto.setId(photo.getId());
+        dto.setTitle(photo.getTitle());
+        dto.setArtisticAuthorName(photo.getArtisticAuthorName());
+        dto.setViewUrl(viewUrl);
+        dto.setDownloadUrl(downloadUrl);
+        dto.setMetadata(photo.getExifData());
+        dto.setCategories(photo.getCategories().stream().map(c -> c.getName()).collect(Collectors.toSet()));
 
-        String camera = "Unknown";
-        String captureDate = "Unknown";
-        if (photo.getExifData() != null) {
-            camera = photo.getExifData().getCameraModel();
-            captureDate = photo.getExifData().getCaptureDate();
+        // Map the traceability history
+        if (photo.getEventTracks() != null) {
+            dto.setEventHistory(photo.getEventTracks().stream().map(track -> {
+                PhotoResponseDTO.TrackInfoDTO t = new PhotoResponseDTO.TrackInfoDTO();
+                t.setEventName(track.getEvent().getName());
+                t.setResultDescription(track.getResultType().getDescription());
+                t.setHonorReceived(track.getHonor());
+                t.setEventDate(track.getEvent().getEventDate().toString());
+                return t;
+            }).collect(Collectors.toList()));
         }
 
-        return new PhotoResponseDTO(
-                photo.getId(),
-                photo.getTitle(),
-                photo.getArtisticAuthorName(),
-                categoryNames,
-                viewUrl,
-                downloadUrl,
-                photo.getExifData()
-        );
+        return dto;
     }
 }
