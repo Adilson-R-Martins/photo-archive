@@ -11,16 +11,17 @@ public interface FileStorageService {
     /**
      * Stores a file in the configured storage location.
      *
-     * @param file The multipart file received from the client
-     * @return The unique generated filename generated for the stored file
+     * @param file  The multipart file received from the client
+     * @param title The title of the photo to help in naming (optional logic)
+     * @return The unique generated filename
      */
-    String storeFile(MultipartFile file);
+    String storeFile(MultipartFile file, String title);
 
     /**
      * Loads a file from the storage as a Resource object.
-     * * @param fileName The unique name of the file
-     * @param isOptimized Boolean to indicate if we are looking in the optimized folder or original folder
+     *
+     * @param fileName The name of the file to load
      * @return The file as a Resource
      */
-    Resource loadFileAsResource(String fileName, boolean isOptimized);
+    Resource loadFileAsResource(String fileName);
 }
