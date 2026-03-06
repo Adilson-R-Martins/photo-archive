@@ -53,8 +53,9 @@ public class MetadataServiceImpl implements MetadataService {
             // --- 3. IPTC (Copyright, Keywords e Description) ---
             IptcDirectory iptcDir = metadata.getFirstDirectoryOfType(IptcDirectory.class);
             if (iptcDir != null) {
-                exifData.setCopyright(iptcDir.getString(IptcDirectory.TAG_COPYRIGHT_NOTICE));
+                exifData.setTitle(iptcDir.getString(IptcDirectory.TAG_OBJECT_NAME)); // This is the "Title"
                 exifData.setDescription(iptcDir.getString(IptcDirectory.TAG_CAPTION)); // This is the "Description"
+                exifData.setCopyright(iptcDir.getString(IptcDirectory.TAG_COPYRIGHT_NOTICE));
 
                 String[] keywords = iptcDir.getStringArray(IptcDirectory.TAG_KEYWORDS);
                 if (keywords != null) {
