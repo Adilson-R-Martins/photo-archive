@@ -51,7 +51,7 @@ public class PhotoEventTrackController {
         track.setPhoto(photo);
         track.setEvent(event);
         track.setResultType(resultType); // Resolve 'setResultType' (veja passo 2)
-        track.setHonor(request.getHonor());
+        track.setHonorReceived(request.getHonor());
         track.setNotes(request.getNotes());
 
         return ResponseEntity.ok(trackRepository.save(track));
