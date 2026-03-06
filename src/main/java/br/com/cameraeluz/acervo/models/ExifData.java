@@ -7,6 +7,7 @@ import lombok.Data;
 @Embeddable
 @Data
 public class ExifData {
+    private String title;
     private String cameraModel;
     private String lens;
     private String focalLength;
