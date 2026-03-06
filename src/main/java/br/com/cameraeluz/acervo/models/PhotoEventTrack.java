@@ -45,7 +45,7 @@ public class PhotoEventTrack {
      * Stored as a string as these names vary greatly between organizers.
      */
     @Column(name = "honor_received")
-    private String honor;
+    private String honorReceived;
 
     /**
      * Optional field to store jury comments or specific notes about this participation.
