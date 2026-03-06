@@ -11,24 +11,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Technical Specification for dynamic photo filtering.
- * Implements industry standards for complex, multi-parameter searching.
+ * Dynamic search engine for the Photo Archive.
+ * Allows combining exact filters (Author, Event, Result) with free-text search (Metadata).
  */
 public class PhotoSpecifications {
 
     /**
-     * Builds a dynamic query based on provided filters.
-     * @param authorId Search by photographer ID.
-     * @param eventId Search by specific event participation.
-     * @param resultTypeId Search by specific award/result.
-     * @param keyword Global search in title and technical metadata.
-     * @return Specification for JPA execution.
+     * Builds a combined query based on provided filters.
+     * * @param authorId Filter by the user who uploaded the photo.
+     *
+     * @param eventId      Filter by participation in a specific event.
+     * @param resultTypeId Filter by a specific award or result type.
+     * @param keyword      Global search across titles and EXIF/IPTC metadata.
+     * @return A dynamic Specification for JPA.
      */
-    public static Specification<Photo> withAdvancedFilters(
-            Long authorId,
-            Long eventId,
-            Long resultTypeId,
-            String keyword) {
+    public static Specification<Photo> withAdvancedFilters(Long authorId, Long eventId, Long resultTypeId, String keyword) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -38,9 +35,9 @@ public class PhotoSpecifications {
                 predicates.add(cb.equal(root.get("uploadedBy").get("id"), authorId));
             }
 
-            // 2. Traceability Filters (Join with Event Tracks)
+            // 2. Traceability (Event & Results) - Uses LEFT JOIN to not exclude photos without events
             if (eventId != null || resultTypeId != null) {
-                Join<Photo, PhotoEventTrack> trackJoin = root.join("eventTracks", JoinType.INNER);
+                Join<Photo, PhotoEventTrack> trackJoin = root.join("eventTracks", JoinType.LEFT);
 
                 if (eventId != null) {
                     predicates.add(cb.equal(trackJoin.get("event").get("id"), eventId));
@@ -51,17 +48,33 @@ public class PhotoSpecifications {
                 }
             }
 
-            // 3. Global Metadata Search (OR condition for multiple fields)
+            // 3. Metadata Keywords (Title and Technical Data)
             if (keyword != null && !keyword.trim().isEmpty()) {
                 String pattern = "%" + keyword.toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("title")), pattern),
-                        cb.like(cb.lower(root.get("exifData").get("cameraModel")), pattern),
-                        cb.like(cb.lower(root.get("exifData").get("lens")), pattern)
-                ));
+
+                // ExifData fields only
+                String[] exifFields = {"cameraModel", "lens", "aperture", "shutterSpeed", "iso",
+                        "focalLength", "captureDate", "description", "keywords", "software", "title"};
+
+                List<Predicate> orPredicates = new ArrayList<>();
+
+                // 1. Busca no título PRINCIPAL da Photo (root)
+                orPredicates.add(cb.like(cb.lower(root.get("title")), pattern));
+
+                // 2. Busca no título e outros campos do EXIF (root.exifData)
+                for (String field : exifFields) {
+                    // Importante: certifique-se que sua classe ExifData tenha o campo "title"
+                    orPredicates.add(cb.like(cb.lower(root.get("exifData").get(field)), pattern));
+                }
+
+                predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
             }
 
-            query.distinct(true); // Avoid duplicates due to joins
+            // Prevents duplicate Photo entries in results when a photo has multiple event tracks
+            if (query != null) {
+                query.distinct(true);
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
