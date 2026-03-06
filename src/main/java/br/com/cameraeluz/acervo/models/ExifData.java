@@ -7,6 +7,8 @@ import lombok.Data;
 @Embeddable
 @Data
 public class ExifData {
+
+    @Column(name = "exif_title")
     private String title;
     private String cameraModel;
     private String lens;
