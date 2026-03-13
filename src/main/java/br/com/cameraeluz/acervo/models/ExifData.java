@@ -2,10 +2,12 @@ package br.com.cameraeluz.acervo.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Embeddable
-@Data
+@Getter
+@Setter
 public class ExifData {
 
     @Column(name = "exif_title")
