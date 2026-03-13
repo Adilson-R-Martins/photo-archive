@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -16,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -25,64 +23,47 @@ public class FileStorageServiceImpl implements FileStorageService {
     private final Path baseStorageLocation;
 
     public FileStorageServiceImpl(@Value("${photoarchive.app.upload-dir}") String uploadDir) {
+        // Agora aponta para "uploads"
         this.baseStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.baseStorageLocation);
-        } catch (Exception ex) {
-            throw new FileStorageException("Could not create base storage directory.", ex);
-        }
     }
 
     @Override
     public String storeFile(MultipartFile file, String title) {
-        String originalFileName = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
+        LocalDate now = LocalDate.now();
+        String year = String.valueOf(now.getYear());
+        String month = String.format("%02d", now.getMonthValue());
+
+        // Define o caminho relativo: 2024/11/photos
+        Path relativeFolder = Paths.get(year, month, "photos");
+        Path fullPath = this.baseStorageLocation.resolve(relativeFolder);
+
         try {
-            String fileExtension = "";
-            int dotIndex = originalFileName.lastIndexOf('.');
-            if (dotIndex > 0) {
-                fileExtension = originalFileName.substring(dotIndex);
-            }
+            Files.createDirectories(fullPath); // Cria a árvore de pastas se não existir
 
-            // Usando UUID para evitar colisões
-            String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
+            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            Files.copy(file.getInputStream(), fullPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
 
-            // Criar estrutura dinâmica: YYYY/MM/photos
-            LocalDate now = LocalDate.now();
-            String year = String.valueOf(now.getYear());
-            String month = String.format("%02d", now.getMonthValue()); // Retorna '01', '10', etc.
-
-            Path targetDir = this.baseStorageLocation.resolve(year).resolve(month).resolve("photos");
-            Files.createDirectories(targetDir); // Garante que as pastas existam
-
-            Path targetLocation = targetDir.resolve(uniqueFileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-            // Retorna o caminho relativo (ex: 2024/10/photos/uuid.jpg)
-            return year + "/" + month + "/photos/" + uniqueFileName;
-
+            // Importante: retorna o caminho relativo para o banco de dados
+            return relativeFolder.resolve(fileName).toString().replace("\\", "/");
         } catch (IOException ex) {
-            throw new FileStorageException("Could not store file " + originalFileName, ex);
+            throw new FileStorageException("Erro ao salvar arquivo", ex);
         }
     }
 
     @Override
     public Resource loadFileAsResource(String relativePath) {
         try {
-            // Previne falhas de segurança do tipo "Directory Traversal" (ex: ../../etc/passwd)
-            if(relativePath.contains("..")) {
-                throw new FileStorageException("Caminho de arquivo inválido: " + relativePath);
-            }
-
+            // relativePath chega como "2024/11/photos/nome.jpg"
             Path filePath = this.baseStorageLocation.resolve(relativePath).normalize();
             Resource resource = new UrlResource(filePath.toUri());
 
-            if (resource.exists()) {
+            if (resource.exists() || resource.isReadable()) {
                 return resource;
             } else {
-                throw new FileStorageException("File not found: " + relativePath);
+                throw new FileStorageException("Arquivo não encontrado ou ilegível: " + relativePath);
             }
         } catch (MalformedURLException ex) {
-            throw new FileStorageException("File not found: " + relativePath, ex);
+            throw new FileStorageException("Erro ao localizar arquivo: " + relativePath, ex);
         }
     }
 }
