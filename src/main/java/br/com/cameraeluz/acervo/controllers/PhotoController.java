@@ -1,137 +1,66 @@
 package br.com.cameraeluz.acervo.controllers;
 
-import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
-import br.com.cameraeluz.acervo.models.*;
-import br.com.cameraeluz.acervo.repositories.*;
-import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
-import br.com.cameraeluz.acervo.services.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import br.com.cameraeluz.acervo.services.FileStorageService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.*;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.nio.file.Files;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/photos")
+@RequiredArgsConstructor
 public class PhotoController {
 
-    @Autowired private PhotoRepository photoRepository;
-    @Autowired private UserRepository userRepository;
-    @Autowired private FileStorageService fileStorageService;
-    @Autowired private ImageService imageService;
-    @Autowired private MetadataService metadataService;
-
-    @GetMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public ResponseEntity<List<PhotoResponseDTO>> searchPhotos(
-            @RequestParam(required = false) Long authorId,
-            @RequestParam(required = false) Long eventId,
-            @RequestParam(required = false) Long resultTypeId,
-            @RequestParam(required = false) String keyword) {
-
-        Specification<Photo> spec = PhotoSpecifications.withAdvancedFilters(authorId, eventId, resultTypeId, keyword);
-        List<PhotoResponseDTO> response = photoRepository.findAll(spec).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/upload")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public ResponseEntity<?> uploadPhoto(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("title") String title,
-            @RequestParam("artisticAuthorName") String artisticAuthorName) {
-
-        try {
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            // Agora com 2 argumentos conforme a nova Interface
-            String originalFileName = fileStorageService.storeFile(file, title);
-
-            // Verifique se o nome no seu ImageService é generateWebVersion ou generateWebOptimizedVersion
-            String webOptimizedName = imageService.generateWebOptimizedVersion(originalFileName);
-
-            Photo photo = new Photo();
-            photo.setTitle(title);
-            photo.setArtisticAuthorName(artisticAuthorName);
-            photo.setUploadedBy(user);
-            photo.setStoragePath(originalFileName);
-            photo.setWebOptimizedPath(webOptimizedName);
-            photo.setOriginalFileName(file.getOriginalFilename());
-            photo.setExifData(metadataService.extractMetadata(file));
-
-            return ResponseEntity.ok(photoRepository.save(photo));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Upload failed: " + e.getMessage());
-        }
-    }
+    private final FileStorageService fileStorageService;
 
     /**
-     * Serves the original high-resolution file for download.
-     * Updated to support deep folder paths (e.g., 2024/10/photos/file.jpg).
+     * Serve a imagem para exibição direta no navegador (Ex: <img src="...">)
+     * O mapeamento /** permite capturar caminhos como 2024/11/thumbnails/foto.jpg
      */
-    @GetMapping("/download/{*fileName}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable("fileName") String fileName, HttpServletRequest request) {
-        // A anotação {*fileName} captura o caminho com uma barra inicial (ex: "/2024/10/photos/img.jpg").
-        // Precisamos de remover essa barra para o FileStorageService localizar corretamente.
-        if (fileName.startsWith("/")) {
-            fileName = fileName.substring(1);
-        }
+    @GetMapping("/view/**")
+    public ResponseEntity<Resource> viewPhoto(HttpServletRequest request) {
+        String path = extractPath(request, "/api/photos/view/");
+        Resource resource = fileStorageService.loadFileAsResource(path);
 
-        Resource resource = fileStorageService.loadFileAsResource(fileName);
-        String contentType = "application/octet-stream";
-        try {
-            contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
-        } catch (IOException ex) {
-            // Mantém o application/octet-stream como fallback
-        }
+        String contentType = determineContentType(resource);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline") // "inline" abre no navegador
+                .body(resource);
+    }
+
+    /**
+     * Força o download do arquivo original
+     */
+    @GetMapping("/download/**")
+    public ResponseEntity<Resource> downloadPhoto(HttpServletRequest request) {
+        String path = extractPath(request, "/api/photos/download/");
+        Resource resource = fileStorageService.loadFileAsResource(path);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
     }
 
-    private PhotoResponseDTO convertToDTO(Photo photo) {
-        PhotoResponseDTO dto = new PhotoResponseDTO();
-        dto.setId(photo.getId());
-        dto.setTitle(photo.getTitle());
-        dto.setArtisticAuthorName(photo.getArtisticAuthorName());
-        dto.setMetadata(photo.getExifData());
+    // Metodo auxiliar para extrair o caminho completo após o prefixo do endpoint
+    private String extractPath(HttpServletRequest request, String prefix) {
+        String fullPath = request.getRequestURI();
+        return fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+    }
 
-        dto.setViewUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/view/").path(photo.getWebOptimizedPath()).toUriString());
-
-        dto.setDownloadUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/download/").path(photo.getStoragePath()).toUriString());
-
-        dto.setCategories(photo.getCategories().stream().map(Category::getName).collect(Collectors.toSet()));
-
-        if (photo.getEventTracks() != null) {
-            dto.setEventHistory(photo.getEventTracks().stream().map(track -> {
-                PhotoResponseDTO.TrackInfoDTO t = new PhotoResponseDTO.TrackInfoDTO();
-                t.setEventName(track.getEvent().getName());
-                t.setResultDescription(track.getResultType().getDescription());
-                // Ajustado para o nome do campo na sua Entity corrigida
-                t.setHonorReceived(track.getHonorReceived());
-                t.setEventDate(track.getEvent().getEventDate().toString());
-                return t;
-            }).collect(Collectors.toList()));
+    // Metodo auxiliar para detectar se é JPG ou PNG dinamicamente
+    private String determineContentType(Resource resource) {
+        try {
+            return Files.probeContentType(resource.getFile().toPath());
+        } catch (IOException e) {
+            return "image/jpeg"; // fallback default
         }
-        return dto;
     }
 }
