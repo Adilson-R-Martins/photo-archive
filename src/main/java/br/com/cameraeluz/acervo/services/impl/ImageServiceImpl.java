@@ -2,7 +2,6 @@ package br.com.cameraeluz.acervo.services.impl;
 
 import br.com.cameraeluz.acervo.exceptions.FileStorageException;
 import br.com.cameraeluz.acervo.services.ImageService;
-import jakarta.annotation.PostConstruct;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -12,55 +11,54 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * Implementation of ImageService using the Thumbnailator library.
- * Handles the resizing and compression of high-resolution image files.
- */
 @Service
 public class ImageServiceImpl implements ImageService {
 
-    private final Path originalStorageLocation;
-    private final Path optimizedStorageLocation;
+    private final Path baseStorageLocation;
 
-    public ImageServiceImpl(
-            @Value("${photoarchive.app.upload-dir}") String uploadDir,
-            @Value("${photoarchive.app.optimized-dir}") String optimizedDir) {
-        this.originalStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        this.optimizedStorageLocation = Paths.get(optimizedDir).toAbsolutePath().normalize();
-    }
-
-    /**
-     * Initializes the optimized images directory on application startup.
-     */
-    @PostConstruct
-    public void init() {
-        try {
-            Files.createDirectories(this.optimizedStorageLocation);
-        } catch (Exception ex) {
-            throw new FileStorageException("Could not create the directory for optimized images.", ex);
-        }
+    // Agora usamos apenas o upload-dir base, as pastas são relativas a ele.
+    public ImageServiceImpl(@Value("${photoarchive.app.upload-dir}") String uploadDir) {
+        this.baseStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
     }
 
     @Override
-    public String generateWebOptimizedVersion(String originalFileName) {
+    public String generateWebOptimizedVersion(String originalRelativePath) {
         try {
-            // Locate the original file
-            File originalFile = this.originalStorageLocation.resolve(originalFileName).toFile();
+            // originalRelativePath chega como: "2024/10/photos/uuid.jpg"
+            String[] parts = originalRelativePath.split("/");
+            if (parts.length < 4) {
+                throw new IllegalArgumentException("Formato de caminho de arquivo inválido.");
+            }
 
-            // Define the name and path for the optimized file
-            String optimizedFileName = "web_" + originalFileName;
-            File optimizedFile = this.optimizedStorageLocation.resolve(optimizedFileName).toFile();
+            String year = parts[0];
+            String month = parts[1];
+            String fileName = parts[parts.length - 1]; // pega só o "uuid.jpg"
 
-            // Process the image: resize to max 1280x1280 (maintaining aspect ratio) and 80% quality
+            // Caminho absoluto do arquivo original
+            File originalFile = this.baseStorageLocation.resolve(originalRelativePath).toFile();
+            if (!originalFile.exists()) {
+                throw new FileStorageException("Arquivo original não encontrado: " + originalRelativePath);
+            }
+
+            // Define e cria a pasta para as thumbnails: YYYY/MM/thumbnails
+            Path thumbnailsDir = this.baseStorageLocation.resolve(year).resolve(month).resolve("thumbnails");
+            Files.createDirectories(thumbnailsDir);
+
+            // Nome e arquivo final otimizado
+            String optimizedFileName = "web_" + fileName;
+            File optimizedFile = thumbnailsDir.resolve(optimizedFileName).toFile();
+
+            // Processamento da imagem
             Thumbnails.of(originalFile)
                     .size(1280, 1280)
                     .outputQuality(0.8)
                     .toFile(optimizedFile);
 
-            return optimizedFileName;
+            // Retorna o caminho relativo da miniatura
+            return year + "/" + month + "/thumbnails/" + optimizedFileName;
 
         } catch (Exception ex) {
-            throw new RuntimeException("Failed to generate web-optimized image for: " + originalFileName, ex);
+            throw new RuntimeException("Falha ao gerar a imagem web otimizada para: " + originalRelativePath, ex);
         }
     }
 }
