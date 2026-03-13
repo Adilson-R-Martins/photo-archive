@@ -53,8 +53,13 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public Resource loadFileAsResource(String relativePath) {
         try {
-            // relativePath chega como "2024/11/photos/nome.jpg"
             Path filePath = this.baseStorageLocation.resolve(relativePath).normalize();
+
+            // ← adicionar aqui
+            if (!filePath.startsWith(this.baseStorageLocation)) {
+                throw new FileStorageException("Acesso negado: caminho fora do diretório permitido.");
+            }
+
             Resource resource = new UrlResource(filePath.toUri());
 
             if (resource.exists() || resource.isReadable()) {
