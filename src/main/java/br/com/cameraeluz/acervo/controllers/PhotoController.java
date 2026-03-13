@@ -39,7 +39,7 @@ public class PhotoController {
                 .body(resource);
     }
 
-    // Método auxiliar para extrair o caminho
+    // Metodo auxiliar para extrair o caminho
     private String extractPath(HttpServletRequest request, String prefix) {
         String fullPath = request.getRequestURI();
         return fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
