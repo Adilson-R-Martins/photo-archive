@@ -72,6 +72,9 @@ public class Photo {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private boolean active = true; // Define como true por padrão para novas fotos
+
     /**
      * Automatically sets the creation timestamp before saving to database.
      */
