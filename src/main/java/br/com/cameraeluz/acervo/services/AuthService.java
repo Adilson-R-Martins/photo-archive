@@ -81,7 +81,7 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    // Método auxiliar privado para evitar repetição de código
+    // Metodo auxiliar privado para evitar repetição de código
     private Role getRoleByName(String roleName) {
         return roleRepository.findByName(roleName)
                 .orElseThrow(() -> new RuntimeException("Erro: Role " + roleName + " não encontrada."));
