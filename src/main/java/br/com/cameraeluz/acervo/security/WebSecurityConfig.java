@@ -2,6 +2,7 @@ package br.com.cameraeluz.acervo.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -45,7 +46,15 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth.requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers("/error").permitAll()
+                                // Visualização deve ser permitida para todos (público)
                                 .requestMatchers("/api/photos/view/**").permitAll()
+                                // Download e Tracks exigem qualquer nível de autenticação
+                                .requestMatchers("/api/photos/download/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
+                                .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
+                                // Upload e Edição/Delete (Soft Delete)
+                                .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+                                .requestMatchers(HttpMethod.PUT, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+                                .requestMatchers(HttpMethod.DELETE, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
                                 .anyRequest().authenticated()
                 );
 
