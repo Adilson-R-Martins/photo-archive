@@ -58,6 +58,9 @@ public class PhotoSpecifications {
 
                 List<Predicate> orPredicates = new ArrayList<>();
 
+                // REGRA OBRIGATÓRIA: Apenas fotos ativas aparecem na galeria/busca
+                predicates.add(cb.isTrue(root.get("active")));
+
                 // 1. Busca no título PRINCIPAL da Photo (root)
                 orPredicates.add(cb.like(cb.lower(root.get("title")), pattern));
 
