@@ -1,0 +1,101 @@
+package br.com.cameraeluz.acervo.services;
+
+import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
+import br.com.cameraeluz.acervo.models.*;
+import br.com.cameraeluz.acervo.repositories.*;
+import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class PhotoService {
+
+    private final PhotoRepository photoRepository;
+    private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final FileStorageService fileStorageService;
+    private final ImageService imageService;
+    private final MetadataService metadataService;
+
+    @Transactional
+    public PhotoResponseDTO uploadPhoto(MultipartFile file, String title, Set<Long> categoryIds) {
+        // 1. Identifica o usuário logado
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + username));
+
+        // 2. Extrai Metadados técnicos antes de salvar
+        ExifData exifData = metadataService.extractMetadata(file);
+
+        // 3. Salva o arquivo original (Estrutura YYYY/MM/photos)
+        String originalPath = fileStorageService.storeFile(file, title);
+
+        // 4. Gera versão otimizada para Web
+        String webPath = imageService.generateWebOptimizedVersion(originalPath);
+
+        // 5. Busca categorias
+        Set<Category> categories = categoryIds.stream()
+                .map(id -> categoryRepository.findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Categoria não encontrada ID: " + id)))
+                .collect(Collectors.toSet());
+
+        // 6. Monta o objeto Photo
+        Photo photo = new Photo();
+        photo.setTitle(title);
+        photo.setArtisticAuthorName(user.getArtisticName());
+        photo.setStoragePath(originalPath);
+        photo.setWebOptimizedPath(webPath);
+        photo.setExifData(exifData);
+        photo.setUploadedBy(user);
+        photo.setCategories(categories);
+
+        return convertToDTO(photoRepository.save(photo));
+    }
+
+    public List<PhotoResponseDTO> searchPhotos(Long authorId, Long eventId, Long resultTypeId, String keyword) {
+        Specification<Photo> spec = PhotoSpecifications.withAdvancedFilters(authorId, eventId, resultTypeId, keyword);
+        return photoRepository.findAll(spec).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // O Mapper (Conversor) fica aqui ou em uma classe dedicada (ModelMapper/MapStruct)
+    public PhotoResponseDTO convertToDTO(Photo photo) {
+        PhotoResponseDTO dto = new PhotoResponseDTO();
+        dto.setId(photo.getId());
+        dto.setTitle(photo.getTitle());
+        dto.setArtisticAuthorName(photo.getArtisticAuthorName());
+        dto.setMetadata(photo.getExifData());
+
+        dto.setViewUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/photos/view/").path(photo.getWebOptimizedPath()).toUriString());
+
+        dto.setDownloadUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/photos/download/").path(photo.getStoragePath()).toUriString());
+
+        dto.setCategories(photo.getCategories().stream().map(Category::getName).collect(Collectors.toSet()));
+
+        if (photo.getEventTracks() != null) {
+            dto.setEventHistory(photo.getEventTracks().stream().map(track -> {
+                PhotoResponseDTO.TrackInfoDTO t = new PhotoResponseDTO.TrackInfoDTO();
+                t.setEventName(track.getEvent().getName());
+                t.setResultDescription(track.getResultType().getDescription());
+                t.setHonorReceived(track.getHonorReceived());
+                t.setEventDate(track.getEvent().getEventDate().toString());
+                return t;
+            }).collect(Collectors.toList()));
+        }
+        return dto;
+    }
+}
