@@ -1,8 +1,9 @@
 package br.com.cameraeluz.acervo.models;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity representing the possible results a photo can achieve in an event.
@@ -11,7 +12,8 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "result_types")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class ResultType {
 

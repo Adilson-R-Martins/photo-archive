@@ -2,8 +2,10 @@ package br.com.cameraeluz.acervo.models;
 
 import br.com.cameraeluz.acervo.models.enums.EventType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDate;
 
 /**
@@ -11,7 +13,8 @@ import java.time.LocalDate;
  */
 @Entity
 @Table(name = "events")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class Event {
 

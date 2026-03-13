@@ -1,9 +1,7 @@
 package br.com.cameraeluz.acervo.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 /**
  * Entity representing the access roles within the system.
@@ -11,7 +9,8 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "roles")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Role {

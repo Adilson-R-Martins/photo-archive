@@ -1,8 +1,9 @@
 package br.com.cameraeluz.acervo.models;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Represents a taxonomic category for organizing photographs within the archive.
@@ -10,7 +11,8 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "categories")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class Category {
     @Id

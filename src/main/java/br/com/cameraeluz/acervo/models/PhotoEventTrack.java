@@ -1,8 +1,9 @@
 package br.com.cameraeluz.acervo.models;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Tracks the trajectory of a photo in specific events.
@@ -10,7 +11,8 @@ import lombok.NoArgsConstructor;
  */
 @Entity
 @Table(name = "photo_event_tracks")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 public class PhotoEventTrack {
 
