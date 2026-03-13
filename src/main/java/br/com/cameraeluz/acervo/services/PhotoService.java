@@ -1,8 +1,14 @@
 package br.com.cameraeluz.acervo.services;
 
 import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
-import br.com.cameraeluz.acervo.models.*;
-import br.com.cameraeluz.acervo.repositories.*;
+import br.com.cameraeluz.acervo.dto.PhotoUpdateDTO;
+import br.com.cameraeluz.acervo.models.Category;
+import br.com.cameraeluz.acervo.models.ExifData;
+import br.com.cameraeluz.acervo.models.Photo;
+import br.com.cameraeluz.acervo.models.User;
+import br.com.cameraeluz.acervo.repositories.CategoryRepository;
+import br.com.cameraeluz.acervo.repositories.PhotoRepository;
+import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -97,5 +103,70 @@ public class PhotoService {
             }).collect(Collectors.toList()));
         }
         return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isOwner(String username, Long photoId) {
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new EntityNotFoundException("Foto não encontrada"));
+
+        // Verifica se o username do usuário logado é o mesmo que subiu a foto
+        return photo.getUploadedBy().getUsername().equals(username);
+    }
+
+    @Transactional
+    public PhotoResponseDTO uploadPhoto(MultipartFile file, String title, String artisticName, Set<Long> categoryIds) {
+        // 1. Usuário Logado
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado"));
+
+        // 2. Processamento de Arquivo e Metadados
+        ExifData exifData = metadataService.extractMetadata(file);
+        String originalPath = fileStorageService.storeFile(file, title);
+        String webPath = imageService.generateWebOptimizedVersion(originalPath);
+
+        // 3. Categorias
+        Set<Category> categories = categoryIds.stream()
+                .map(id -> categoryRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Cat ID: " + id)))
+                .collect(Collectors.toSet());
+
+        // 4. Salvar Entidade
+        Photo photo = new Photo();
+        photo.setTitle(title);
+        // Se artisticName for enviado, usa ele. Se não, usa o do cadastro do User.
+        photo.setArtisticAuthorName((artisticName != null && !artisticName.isBlank()) ? artisticName : user.getArtisticName());
+        photo.setStoragePath(originalPath);
+        photo.setWebOptimizedPath(webPath);
+        photo.setExifData(exifData);
+        photo.setUploadedBy(user);
+        photo.setCategories(categories);
+        photo.setActive(true);
+
+        return convertToDTO(photoRepository.save(photo));
+    }
+
+    @Transactional
+    public PhotoResponseDTO updatePhoto(Long id, PhotoUpdateDTO dto) {
+        Photo photo = photoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Foto não encontrada"));
+
+        if (dto.getTitle() != null) photo.setTitle(dto.getTitle());
+        if (dto.getArtisticAuthorName() != null) photo.setArtisticAuthorName(dto.getArtisticAuthorName());
+
+        // Atualiza o status apenas se o campo for enviado no JSON
+        if (dto.getActive() != null) {
+            photo.setActive(dto.getActive());
+        }
+
+        if (dto.getCategoryIds() != null) {
+            Set<Category> categories = dto.getCategoryIds().stream()
+                    .map(catId -> categoryRepository.findById(catId)
+                            .orElseThrow(() -> new EntityNotFoundException("Cat ID: " + catId)))
+                    .collect(Collectors.toSet());
+            photo.setCategories(categories);
+        }
+
+        return convertToDTO(photoRepository.save(photo));
     }
 }
