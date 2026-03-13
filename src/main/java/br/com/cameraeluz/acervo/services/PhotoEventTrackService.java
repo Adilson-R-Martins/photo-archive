@@ -23,6 +23,11 @@ public class PhotoEventTrackService {
         Photo photo = photoRepository.findById(request.getPhotoId())
                 .orElseThrow(() -> new EntityNotFoundException("Foto não encontrada com o ID: " + request.getPhotoId()));
 
+        // VALIDAÇÃO DE NEGÓCIO:
+        if (!photo.isActive()) {
+            throw new IllegalStateException("Esta foto está inativa e não pode participar de eventos.");
+        }
+
         Event event = eventRepository.findById(request.getEventId())
                 .orElseThrow(() -> new EntityNotFoundException("Evento não encontrado com o ID: " + request.getEventId()));
 
