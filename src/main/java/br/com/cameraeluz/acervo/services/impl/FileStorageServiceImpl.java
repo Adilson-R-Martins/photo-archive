@@ -55,7 +55,6 @@ public class FileStorageServiceImpl implements FileStorageService {
         try {
             Path filePath = this.baseStorageLocation.resolve(relativePath).normalize();
 
-            // ← adicionar aqui
             if (!filePath.startsWith(this.baseStorageLocation)) {
                 throw new FileStorageException("Acesso negado: caminho fora do diretório permitido.");
             }
