@@ -80,13 +80,25 @@ public class PhotoController {
         }
     }
 
-    @GetMapping("/download/{fileName:.+}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName, HttpServletRequest request) {
+    /**
+     * Serves the original high-resolution file for download.
+     * Updated to support deep folder paths (e.g., 2024/10/photos/file.jpg).
+     */
+    @GetMapping("/download/{*fileName}")
+    public ResponseEntity<Resource> downloadFile(@PathVariable("fileName") String fileName, HttpServletRequest request) {
+        // A anotação {*fileName} captura o caminho com uma barra inicial (ex: "/2024/10/photos/img.jpg").
+        // Precisamos de remover essa barra para o FileStorageService localizar corretamente.
+        if (fileName.startsWith("/")) {
+            fileName = fileName.substring(1);
+        }
+
         Resource resource = fileStorageService.loadFileAsResource(fileName);
         String contentType = "application/octet-stream";
         try {
             contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
-        } catch (IOException ex) { }
+        } catch (IOException ex) {
+            // Mantém o application/octet-stream como fallback
+        }
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
