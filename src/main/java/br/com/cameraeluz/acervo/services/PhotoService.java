@@ -34,41 +34,6 @@ public class PhotoService {
     private final ImageService imageService;
     private final MetadataService metadataService;
 
-    @Transactional
-    public PhotoResponseDTO uploadPhoto(MultipartFile file, String title, Set<Long> categoryIds) {
-        // 1. Identifica o usuário logado
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado: " + username));
-
-        // 2. Extrai Metadados técnicos antes de salvar
-        ExifData exifData = metadataService.extractMetadata(file);
-
-        // 3. Salva o arquivo original (Estrutura YYYY/MM/photos)
-        String originalPath = fileStorageService.storeFile(file, title);
-
-        // 4. Gera versão otimizada para Web
-        String webPath = imageService.generateWebOptimizedVersion(originalPath);
-
-        // 5. Busca categorias
-        Set<Category> categories = categoryIds.stream()
-                .map(id -> categoryRepository.findById(id)
-                        .orElseThrow(() -> new EntityNotFoundException("Categoria não encontrada ID: " + id)))
-                .collect(Collectors.toSet());
-
-        // 6. Monta o objeto Photo
-        Photo photo = new Photo();
-        photo.setTitle(title);
-        photo.setArtisticAuthorName(user.getArtisticName());
-        photo.setStoragePath(originalPath);
-        photo.setWebOptimizedPath(webPath);
-        photo.setExifData(exifData);
-        photo.setUploadedBy(user);
-        photo.setCategories(categories);
-
-        return convertToDTO(photoRepository.save(photo));
-    }
-
     public List<PhotoResponseDTO> searchPhotos(Long authorId, Long eventId, Long resultTypeId, String keyword) {
         Specification<Photo> spec = PhotoSpecifications.withAdvancedFilters(authorId, eventId, resultTypeId, keyword);
         return photoRepository.findAll(spec).stream()
