@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 /**
  * Tracks the trajectory of a photo in specific events.
  * Records results, awards, and participations for traceability.
@@ -36,7 +38,6 @@ public class PhotoEventTrack {
 
     /**
      * The official result achieved (e.g., 1st Place, Acceptance).
-     * Managed by the administrator through the ResultType entity.
      */
     @ManyToOne(optional = false)
     @JoinColumn(name = "result_type_id", nullable = false)
@@ -44,14 +45,25 @@ public class PhotoEventTrack {
 
     /**
      * Specific honors received (e.g., Gold Medal, Ribbon).
-     * Stored as a string as these names vary greatly between organizers.
      */
     @Column(name = "honor_received")
     private String honorReceived;
 
     /**
-     * Optional field to store jury comments or specific notes about this participation.
+     * Optional jury comments or notes about this participation.
      */
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    /**
+     * Timestamp of when this participation record was registered.
+     * Immutable after creation — essential for audit traceability.
+     */
+    @Column(name = "registered_at", nullable = false, updatable = false)
+    private LocalDateTime registeredAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.registeredAt = LocalDateTime.now();
+    }
 }
