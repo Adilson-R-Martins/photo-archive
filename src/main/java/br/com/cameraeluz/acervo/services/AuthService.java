@@ -17,7 +17,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,33 +50,16 @@ public class AuthService {
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
             throw new RuntimeException("Erro: Usuário já existe!");
         }
-
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             throw new RuntimeException("Erro: E-mail já está em uso!");
         }
 
-        // Cria a conta do usuário
         User user = new User();
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
+        user.setRoles(Set.of(getRoleByName("ROLE_USER"))); // ← sempre USER
 
-        Set<String> strRoles = signUpRequest.getRole();
-        Set<Role> roles = new HashSet<>();
-
-        if (strRoles == null) {
-            roles.add(getRoleByName("ROLE_USER"));
-        } else {
-            strRoles.forEach(role -> {
-                switch (role.toLowerCase()) {
-                    case "admin" -> roles.add(getRoleByName("ROLE_ADMIN"));
-                    case "editor" -> roles.add(getRoleByName("ROLE_EDITOR"));
-                    default -> roles.add(getRoleByName("ROLE_USER"));
-                }
-            });
-        }
-
-        user.setRoles(roles);
         userRepository.save(user);
     }
 
