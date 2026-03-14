@@ -4,7 +4,6 @@ import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +20,7 @@ public class UserDetailsServiceImpl implements org.springframework.security.core
 
     /**
      * Locates the user based on the username.
+     *
      * @param username the username identifying the user whose data is required.
      * @return a fully populated UserDetails object (never null).
      * @throws UsernameNotFoundException if the user could not be found.

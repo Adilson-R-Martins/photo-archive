@@ -2,6 +2,7 @@ package br.com.cameraeluz.acervo.exceptions;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+
 import java.time.LocalDateTime;
 import java.util.List;
 

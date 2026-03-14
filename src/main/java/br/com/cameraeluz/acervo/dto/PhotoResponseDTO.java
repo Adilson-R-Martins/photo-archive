@@ -3,6 +3,7 @@ package br.com.cameraeluz.acervo.dto;
 import br.com.cameraeluz.acervo.models.ExifData;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.util.List;
 import java.util.Set;
 
