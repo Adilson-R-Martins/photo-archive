@@ -13,7 +13,6 @@ import java.util.List;
  * REST Controller for Category management.
  * Implements Role-Based Access Control (RBAC) to secure sensitive operations.
  */
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/categories")
 public class CategoryController {
