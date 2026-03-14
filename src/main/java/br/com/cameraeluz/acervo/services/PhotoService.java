@@ -101,6 +101,7 @@ public class PhotoService {
 
         Photo photo = new Photo();
         photo.setTitle(title);
+        photo.setOriginalFileName(file.getOriginalFilename());
         photo.setArtisticAuthorName(user.getArtisticName());
         photo.setStoragePath(originalPath);
         photo.setWebOptimizedPath(webPath);
@@ -130,6 +131,7 @@ public class PhotoService {
 
         Photo photo = new Photo();
         photo.setTitle(title);
+        photo.setOriginalFileName(file.getOriginalFilename());
         photo.setArtisticAuthorName((artisticName != null && !artisticName.isBlank())
                 ? artisticName : user.getArtisticName());
         photo.setStoragePath(originalPath);
