@@ -9,18 +9,41 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/tracks")
 @RequiredArgsConstructor // <-- Substitui todos os seus @Autowired!
 public class PhotoEventTrackController {
 
-    // Injetamos apenas o Service! O Controller não precisa mais falar com Repositories
     private final PhotoEventTrackService trackService;
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('EDITOR')")
-    public ResponseEntity<PhotoEventTrack> createTrack(@Valid @RequestBody PhotoEventTrackRequestDTO request) {
-        PhotoEventTrack createdTrack = trackService.createTrack(request);
-        return ResponseEntity.ok(createdTrack);
+    public ResponseEntity<PhotoEventTrack> createTrack(
+            @Valid @RequestBody PhotoEventTrackRequestDTO request) {
+        return ResponseEntity.ok(trackService.createTrack(request));
+    }
+
+    /**
+     * Returns the full event history of a specific photo.
+     * Accessible by any authenticated user.
+     */
+    @GetMapping("/photo/{photoId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
+    public ResponseEntity<List<PhotoEventTrack>> getTracksByPhoto(
+            @PathVariable Long photoId) {
+        return ResponseEntity.ok(trackService.findByPhoto(photoId));
+    }
+
+    /**
+     * Returns all photo participations registered for a specific event.
+     * Accessible by any authenticated user.
+     */
+    @GetMapping("/event/{eventId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
+    public ResponseEntity<List<PhotoEventTrack>> getTracksByEvent(
+            @PathVariable Long eventId) {
+        return ResponseEntity.ok(trackService.findByEvent(eventId));
     }
 }
