@@ -11,6 +11,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -93,5 +97,24 @@ public class PhotoController {
         softDeleteDto.setActive(false);
         photoService.updatePhoto(id, softDeleteDto);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Searches photos with optional filters and pagination.
+     * <p>
+     * Example: GET /api/photos/search?keyword=passaro&page=0&size=20&sort=createdAt,desc
+     */
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
+    public ResponseEntity<Page<PhotoResponseDTO>> searchPhotos(
+            @RequestParam(required = false) Long authorId,
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) Long resultTypeId,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 20, sort = "createdAt",
+                    direction = Sort.Direction.DESC) Pageable pageable) {
+
+        return ResponseEntity.ok(
+                photoService.searchPhotos(authorId, eventId, resultTypeId, keyword, pageable));
     }
 }

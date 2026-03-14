@@ -12,6 +12,8 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -37,11 +39,19 @@ public class PhotoService {
     private static final List<String> ALLOWED_TYPES =
             List.of("image/jpeg", "image/png", "image/tiff", "image/webp");
 
-    public List<PhotoResponseDTO> searchPhotos(Long authorId, Long eventId, Long resultTypeId, String keyword) {
-        Specification<Photo> spec = PhotoSpecifications.withAdvancedFilters(authorId, eventId, resultTypeId, keyword);
-        return photoRepository.findAll(spec).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Page<PhotoResponseDTO> searchPhotos(
+            Long authorId,
+            Long eventId,
+            Long resultTypeId,
+            String keyword,
+            Pageable pageable) {
+
+        Specification<Photo> spec = PhotoSpecifications
+                .withAdvancedFilters(authorId, eventId, resultTypeId, keyword);
+
+        return photoRepository.findAll(spec, pageable)
+                .map(this::convertToDTO);
     }
 
     public PhotoResponseDTO convertToDTO(Photo photo) {
