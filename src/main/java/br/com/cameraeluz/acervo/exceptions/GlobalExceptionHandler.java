@@ -16,9 +16,10 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Lida com o erro 404 (Entidade não encontrada no Banco)
+    // 1. Entidade não encontrada no banco
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<StandardError> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<StandardError> handleEntityNotFound(
+            EntityNotFoundException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
@@ -29,11 +30,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
     }
 
-    // 2. Lida com os erros 400 gerados pelos seus DTOs (@Valid / @NotNull)
+    // 2. Erros de validação dos DTOs (@Valid / @NotNull)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<StandardError> handleValidationExceptions(MethodArgumentNotValidException ex, HttpServletRequest request) {
-
-        // Pega todos os erros de campos e junta numa lista
+    public ResponseEntity<StandardError> handleValidationExceptions(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
         List<String> errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -50,9 +50,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
-    // 3. (Opcional) Captura a exceção de arquivo que fizemos antes
+    // 3. Erros de armazenamento de arquivo
     @ExceptionHandler(FileStorageException.class)
-    public ResponseEntity<StandardError> handleFileStorageException(FileStorageException ex, HttpServletRequest request) {
+    public ResponseEntity<StandardError> handleFileStorageException(
+            FileStorageException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
@@ -61,5 +62,33 @@ public class GlobalExceptionHandler {
                 null
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+    }
+
+    // 4. Tipo de arquivo inválido e foto inativa em evento (IllegalArgumentException / IllegalStateException)
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    public ResponseEntity<StandardError> handleIllegalArgument(
+            RuntimeException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Requisição Inválida",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+    }
+
+    // 5. Usuário ou e-mail duplicados no cadastro (AuthService.registerUser)
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<StandardError> handleRuntimeException(
+            RuntimeException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Conflito",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(err);
     }
 }
