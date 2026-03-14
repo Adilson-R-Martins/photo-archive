@@ -7,6 +7,8 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.iptc.IptcDirectory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +21,8 @@ import java.io.InputStream;
 @Service
 public class MetadataServiceImpl implements MetadataService {
 
+    private static final Logger logger = LoggerFactory.getLogger(MetadataServiceImpl.class);
+
     @Override
     public ExifData extractMetadata(MultipartFile file) {
         ExifData exifData = new ExifData();
@@ -26,19 +30,14 @@ public class MetadataServiceImpl implements MetadataService {
         try (InputStream is = file.getInputStream()) {
             Metadata metadata = ImageMetadataReader.readMetadata(is);
 
-            // --- 1. EXIF IFD0 (Onde geralmente moram o Modelo e o Software) ---
             ExifIFD0Directory ifd0Dir = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
             if (ifd0Dir != null) {
-                // Tentativa 1 para Modelo
                 exifData.setCameraModel(ifd0Dir.getString(ExifIFD0Directory.TAG_MODEL));
-                // Tentativa para Software
                 exifData.setSoftware(ifd0Dir.getString(ExifIFD0Directory.TAG_SOFTWARE));
             }
 
-            // --- 2. EXIF SubIFD (Dados técnicos e Fallback de Modelo) ---
             ExifSubIFDDirectory subIfdDir = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
             if (subIfdDir != null) {
-                // Se o modelo ainda for nulo, tenta pegar do SubIFD
                 if (exifData.getCameraModel() == null) {
                     exifData.setCameraModel(subIfdDir.getString(ExifSubIFDDirectory.TAG_MODEL));
                 }
@@ -50,11 +49,10 @@ public class MetadataServiceImpl implements MetadataService {
                 exifData.setCaptureDate(subIfdDir.getString(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL));
             }
 
-            // --- 3. IPTC (Copyright, Keywords e Description) ---
             IptcDirectory iptcDir = metadata.getFirstDirectoryOfType(IptcDirectory.class);
             if (iptcDir != null) {
-                exifData.setTitle(iptcDir.getString(IptcDirectory.TAG_OBJECT_NAME)); // This is the "Title"
-                exifData.setDescription(iptcDir.getString(IptcDirectory.TAG_CAPTION)); // This is the "Description"
+                exifData.setTitle(iptcDir.getString(IptcDirectory.TAG_OBJECT_NAME));
+                exifData.setDescription(iptcDir.getString(IptcDirectory.TAG_CAPTION));
                 exifData.setCopyright(iptcDir.getString(IptcDirectory.TAG_COPYRIGHT_NOTICE));
 
                 String[] keywords = iptcDir.getStringArray(IptcDirectory.TAG_KEYWORDS);
@@ -63,8 +61,8 @@ public class MetadataServiceImpl implements MetadataService {
                 }
             }
         } catch (Exception e) {
-            // Log the error and return empty exifData to avoid crashing the upload
-            System.err.println("Error extracting metadata: " + e.getMessage());
+            logger.warn("Não foi possível extrair metadados do arquivo '{}': {}",
+                    file.getOriginalFilename(), e.getMessage());
         }
 
         return exifData;
