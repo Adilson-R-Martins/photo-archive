@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository interface for {@link Photo} entity.
@@ -24,5 +25,7 @@ public interface PhotoRepository extends JpaRepository<Photo, Long>, JpaSpecific
 
     // Versão paginada para performance
     Page<Photo> findAllByActiveTrue(Pageable pageable);
+
+    Optional<Photo> findByWebOptimizedPath(String webOptimizedPath);
 
 }
