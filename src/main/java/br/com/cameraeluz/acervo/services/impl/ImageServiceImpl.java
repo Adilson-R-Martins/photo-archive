@@ -20,15 +20,19 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public String generateWebOptimizedVersion(String originalRelativePath) {
-        // originalRelativePath é "2024/11/photos/uuid_foto.jpg"
         Path originalFile = this.baseStorageLocation.resolve(originalRelativePath);
 
-        // Troca "photos" por "thumbnails" no caminho
-        String thumbnailRelativePath = originalRelativePath.replace("photos", "thumbnails");
+        // Substitui apenas o segmento de diretório "photos" por "thumbnails",
+        // sem risco de corromper títulos que contenham a palavra "photos"
+        Path relativePath = Paths.get(originalRelativePath);
+        Path parent = relativePath.getParent();           // ex: "2024/11/photos"
+        Path grandParent = parent.getParent();            // ex: "2024/11"
+        Path thumbParent = grandParent.resolve("thumbnails"); // ex: "2024/11/thumbnails"
+        Path thumbnailRelativePath = thumbParent.resolve(relativePath.getFileName()); // ex: "2024/11/thumbnails/uuid_foto.jpg"
+
         Path thumbnailFile = this.baseStorageLocation.resolve(thumbnailRelativePath);
 
         try {
-            // Cria a pasta de thumbnails do mês se não existir
             Files.createDirectories(thumbnailFile.getParent());
 
             Thumbnails.of(originalFile.toFile())
@@ -36,9 +40,9 @@ public class ImageServiceImpl implements ImageService {
                     .outputQuality(0.8)
                     .toFile(thumbnailFile.toFile());
 
-            return thumbnailRelativePath.replace("\\", "/");
+            return thumbnailRelativePath.toString().replace("\\", "/");
         } catch (Exception ex) {
-            throw new RuntimeException("Erro ao gerar thumbnail", ex);
+            throw new RuntimeException("Erro ao gerar thumbnail: " + ex.getMessage(), ex);
         }
     }
 }
