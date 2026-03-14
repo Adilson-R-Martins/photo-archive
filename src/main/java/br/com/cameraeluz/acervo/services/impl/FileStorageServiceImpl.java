@@ -33,17 +33,21 @@ public class FileStorageServiceImpl implements FileStorageService {
         String year = String.valueOf(now.getYear());
         String month = String.format("%02d", now.getMonthValue());
 
-        // Define o caminho relativo: 2024/11/photos
         Path relativeFolder = Paths.get(year, month, "photos");
         Path fullPath = this.baseStorageLocation.resolve(relativeFolder);
 
         try {
-            Files.createDirectories(fullPath); // Cria a árvore de pastas se não existir
+            Files.createDirectories(fullPath);
 
-            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            // Sanitiza o nome original para remover path traversal e caracteres perigosos
+            String originalName = file.getOriginalFilename() != null
+                    ? file.getOriginalFilename() : "file";
+            String safeName = Paths.get(originalName).getFileName().toString()
+                    .replaceAll("[^a-zA-Z0-9._-]", "_");
+
+            String fileName = UUID.randomUUID() + "_" + safeName;
             Files.copy(file.getInputStream(), fullPath.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
 
-            // Importante: retorna o caminho relativo para o banco de dados
             return relativeFolder.resolve(fileName).toString().replace("\\", "/");
         } catch (IOException ex) {
             throw new FileStorageException("Erro ao salvar arquivo", ex);
