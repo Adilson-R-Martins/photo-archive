@@ -26,13 +26,11 @@ public class UserDetailsServiceImpl implements org.springframework.security.core
      * @throws UsernameNotFoundException if the user could not be found.
      */
     @Override
-    @Transactional
+    @Transactional // ← mantém a sessão aberta para o carregamento LAZY
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // Query the database using our repository
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
 
-        // Use our adapter to convert our User entity to Spring's UserDetails
-        return UserDetailsImpl.build(user);
+        return UserDetailsImpl.build(user); // roles são carregados aqui, dentro da transação
     }
 }

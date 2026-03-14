@@ -44,7 +44,7 @@ public class User {
     /**
      * Relationship with roles. A user can have multiple roles in a professional system.
      */
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
