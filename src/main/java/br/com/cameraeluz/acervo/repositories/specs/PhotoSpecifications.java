@@ -30,6 +30,8 @@ public class PhotoSpecifications {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            predicates.add(cb.isTrue(root.get("active")));
+
             // 1. Author Filter
             if (authorId != null) {
                 predicates.add(cb.equal(root.get("uploadedBy").get("id"), authorId));
@@ -57,9 +59,6 @@ public class PhotoSpecifications {
                         "focalLength", "captureDate", "description", "keywords", "software", "title"};
 
                 List<Predicate> orPredicates = new ArrayList<>();
-
-                // REGRA OBRIGATÓRIA: Apenas fotos ativas aparecem na galeria/busca
-                predicates.add(cb.isTrue(root.get("active")));
 
                 // 1. Busca no título PRINCIPAL da Photo (root)
                 orPredicates.add(cb.like(cb.lower(root.get("title")), pattern));
