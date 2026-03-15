@@ -125,7 +125,10 @@ public class PhotoService {
     }
 
     /**
-     * Uploads a new photo and derives the artistic author name from the uploader's profile.
+     * Uploads a new photo, deriving the artistic author name from the uploader's profile.
+     *
+     * <p>Delegates to {@link #uploadPhoto(MultipartFile, String, String, Set)} with
+     * {@code artisticName = null}, which falls back to the profile artistic name.</p>
      *
      * @param file        the image file to store.
      * @param title       the display title for the photo.
@@ -136,46 +139,19 @@ public class PhotoService {
      */
     @Transactional
     public PhotoResponseDTO uploadPhoto(MultipartFile file, String title, Set<Long> categoryIds) {
-        validateFileType(file);
-
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "User '" + username + "' was not found. Ensure the username is correct."));
-
-        ExifData exifData = metadataService.extractMetadata(file);
-        String originalPath = fileStorageService.storeFile(file, title);
-        String webPath = imageService.generateWebOptimizedVersion(originalPath);
-
-        Set<Category> categories = categoryIds.stream()
-                .map(id -> categoryRepository.findById(id)
-                        .orElseThrow(() -> new EntityNotFoundException(
-                                "Category with id " + id + " was not found. Provide a valid category identifier.")))
-                .collect(Collectors.toSet());
-
-        Photo photo = new Photo();
-        photo.setTitle(title);
-        photo.setOriginalFileName(file.getOriginalFilename());
-        photo.setArtisticAuthorName(user.getArtisticName());
-        photo.setStoragePath(originalPath);
-        photo.setWebOptimizedPath(webPath);
-        photo.setExifData(exifData);
-        photo.setUploadedBy(user);
-        photo.setCategories(categories);
-
-        return convertToDTO(photoRepository.save(photo));
+        return uploadPhoto(file, title, null, categoryIds);
     }
 
     /**
-     * Uploads a new photo with an explicit artistic author name override.
+     * Uploads a new photo with an optional artistic author name override.
      *
      * <p>If {@code artisticName} is {@code null} or blank, the uploader's
      * profile artistic name is used as a fallback.</p>
      *
-     * @param file          the image file to store.
-     * @param title         the display title for the photo.
-     * @param artisticName  optional override for the artistic author name.
-     * @param categoryIds   the set of category ids to associate with the photo.
+     * @param file         the image file to store.
+     * @param title        the display title for the photo.
+     * @param artisticName optional override for the artistic author name.
+     * @param categoryIds  the set of category ids to associate with the photo.
      * @return the persisted photo as a {@link PhotoResponseDTO}.
      * @throws EntityNotFoundException  if the authenticated user or any category is not found.
      * @throws IllegalArgumentException if the file's content type is not permitted.
@@ -187,7 +163,7 @@ public class PhotoService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        "Authenticated user was not found in the database. Re-authenticate and try again."));
+                        "User '" + username + "' was not found. Ensure the username is correct."));
 
         ExifData exifData = metadataService.extractMetadata(file);
         String originalPath = fileStorageService.storeFile(file, title);
@@ -209,7 +185,6 @@ public class PhotoService {
         photo.setExifData(exifData);
         photo.setUploadedBy(user);
         photo.setCategories(categories);
-        photo.setActive(true);
 
         return convertToDTO(photoRepository.save(photo));
     }
