@@ -105,7 +105,6 @@ public class PhotoController {
      * Example: GET /api/photos/search?keyword=passaro&page=0&size=20&sort=createdAt,desc
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
     public ResponseEntity<Page<PhotoResponseDTO>> searchPhotos(
             @RequestParam(required = false) Long authorId,
             @RequestParam(required = false) Long eventId,

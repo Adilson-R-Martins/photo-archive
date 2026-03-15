@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +23,9 @@ import java.util.List;
 @Configuration
 @EnableMethodSecurity
 public class WebSecurityConfig {
+
+    @Value("${photoarchive.app.photo-visibility:PRIVATE}")
+    private String photoVisibility;
 
     private final AuthEntryPointJwt unauthorizedHandler;
 
@@ -50,20 +54,26 @@ public class WebSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth ->
+                .authorizeHttpRequests(auth -> {
                         auth.requestMatchers("/api/auth/**").permitAll()
-                                .requestMatchers("/error").permitAll()
-                                // Visualização deve ser permitida para todos (público)
-                                .requestMatchers("/api/photos/view/**").permitAll()
-                                // Download e Tracks exigem qualquer nível de autenticação
-                                .requestMatchers("/api/photos/download/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
+                                .requestMatchers("/error").permitAll();
+                        // Visibilidade configurável: PUBLIC permite acesso sem autenticação
+                        if ("PUBLIC".equalsIgnoreCase(photoVisibility)) {
+                            auth.requestMatchers("/api/photos/view/**").permitAll()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").permitAll();
+                        } else {
+                            auth.requestMatchers("/api/photos/view/**").authenticated()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated();
+                        }
+                        // Download e Tracks exigem qualquer nível de autenticação
+                        auth.requestMatchers("/api/photos/download/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
                                 .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
                                 // Upload e Edição/Delete (Soft Delete)
                                 .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
                                 .requestMatchers(HttpMethod.PUT, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
                                 .requestMatchers(HttpMethod.DELETE, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
-                                .anyRequest().authenticated()
-                );
+                                .anyRequest().authenticated();
+                });
 
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
