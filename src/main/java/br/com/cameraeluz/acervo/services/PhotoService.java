@@ -90,7 +90,7 @@ public class PhotoService {
                 .path("/api/photos/view/").path(photo.getWebOptimizedPath()).toUriString());
 
         dto.setDownloadUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/download/").path(photo.getStoragePath()).toUriString());
+                .path("/api/photos/download/").path(String.valueOf(photo.getId())).toUriString());
 
         dto.setCategories(photo.getCategories().stream()
                 .map(Category::getName)
