@@ -12,6 +12,7 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -19,7 +20,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 import java.util.Set;
@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PhotoService {
+
+    @Value("${photoarchive.app.base-url}")
+    private String baseUrl;
 
     private final PhotoRepository photoRepository;
     private final UserRepository userRepository;
@@ -86,11 +89,8 @@ public class PhotoService {
         dto.setArtisticAuthorName(photo.getArtisticAuthorName());
         dto.setMetadata(photo.getExifData());
 
-        dto.setViewUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/view/").path(photo.getWebOptimizedPath()).toUriString());
-
-        dto.setDownloadUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/photos/download/").path(String.valueOf(photo.getId())).toUriString());
+        dto.setViewUrl(baseUrl + "/api/photos/view/" + photo.getWebOptimizedPath());
+        dto.setDownloadUrl(baseUrl + "/api/photos/download/" + photo.getId());
 
         dto.setCategories(photo.getCategories().stream()
                 .map(Category::getName)
