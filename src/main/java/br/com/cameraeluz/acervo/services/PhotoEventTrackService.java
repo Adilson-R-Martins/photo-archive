@@ -13,6 +13,7 @@ import br.com.cameraeluz.acervo.repositories.ResultTypeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,6 +44,7 @@ public class PhotoEventTrackService {
      * @throws IllegalStateException   if the photo is inactive and therefore ineligible
      *                                 for event registration.
      */
+    @Transactional
     public PhotoEventTrackResponseDTO createTrack(PhotoEventTrackRequestDTO request) {
         Photo photo = photoRepository.findById(request.getPhotoId())
                 .orElseThrow(() -> new EntityNotFoundException(
@@ -79,6 +81,7 @@ public class PhotoEventTrackService {
      * @return a list of {@link PhotoEventTrackResponseDTO}; empty if none exist.
      * @throws EntityNotFoundException if no photo with the given id exists.
      */
+    @Transactional(readOnly = true)
     public List<PhotoEventTrackResponseDTO> findByPhoto(Long photoId) {
         Photo photo = photoRepository.findById(photoId)
                 .orElseThrow(() -> new EntityNotFoundException(
@@ -95,6 +98,7 @@ public class PhotoEventTrackService {
      * @return a list of {@link PhotoEventTrackResponseDTO}; empty if none exist.
      * @throws EntityNotFoundException if no event with the given id exists.
      */
+    @Transactional(readOnly = true)
     public List<PhotoEventTrackResponseDTO> findByEvent(Long eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException(
