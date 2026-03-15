@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.services.impl;
 
+import br.com.cameraeluz.acervo.exceptions.ImageProcessingException;
 import br.com.cameraeluz.acervo.services.ImageService;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,9 +71,9 @@ public class ImageServiceImpl implements ImageService {
 
             return thumbnailRelativePath.toString().replace("\\", "/");
         } catch (Exception ex) {
-            throw new RuntimeException(
-                    "Failed to generate web-optimized version for '" + originalRelativePath
-                    + "'. Verify the source file is a valid image in a supported format.", ex);
+            throw new ImageProcessingException(
+                    "Failed to generate web-optimised version for '" + originalRelativePath
+                    + "'. Verify the source file is a valid, uncorrupted image in a supported format.", ex);
         }
     }
 }

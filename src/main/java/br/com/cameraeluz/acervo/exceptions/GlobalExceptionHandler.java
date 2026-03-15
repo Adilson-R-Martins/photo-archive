@@ -75,6 +75,31 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles image-processing failures thrown by the thumbnail/optimisation pipeline
+     * (e.g., a corrupted source file or an unsupported image encoding).
+     *
+     * <p>The real cause is logged server-side; the client receives a safe 422 message
+     * that does not reveal internal library details or file-system paths.</p>
+     *
+     * @param ex      the image processing exception.
+     * @param request the current HTTP request.
+     * @return {@code 422 Unprocessable Entity}.
+     */
+    @ExceptionHandler(ImageProcessingException.class)
+    public ResponseEntity<StandardError> handleImageProcessing(
+            ImageProcessingException ex, HttpServletRequest request) {
+        logger.error("Image processing failed at [{}]: {}", request.getRequestURI(), ex.getMessage(), ex);
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.UNPROCESSABLE_ENTITY.value(),
+                "Image Processing Error",
+                "The uploaded file could not be processed. Ensure it is a valid, uncorrupted image.",
+                null
+        );
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(err);
+    }
+
+    /**
      * Handles file-storage errors thrown by the storage layer (e.g., write failure,
      * path-traversal attempt, or file-not-found on retrieval).
      *
