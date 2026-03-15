@@ -104,7 +104,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
             Resource resource = new UrlResource(filePath.toUri());
 
-            if (resource.exists() || resource.isReadable()) {
+            if (resource.exists() && resource.isReadable()) {
                 return resource;
             } else {
                 throw new FileStorageException(

@@ -44,9 +44,14 @@ public class PhotoSpecifications {
                 predicates.add(cb.equal(root.get("uploadedBy").get("id"), authorId));
             }
 
-            // 2. Traceability (Event & Results) - Uses LEFT JOIN to not exclude photos without events
+            // 2. Traceability (Event & Results)
+            // INNER JOIN is intentional: when filtering by eventId or resultTypeId the caller
+            // explicitly requests only photos that have a matching track, so photos without
+            // any event participation should be excluded. Using LEFT JOIN + an equality
+            // predicate on the joined table silently produces the same INNER JOIN semantics
+            // in SQL but obscures the intent — making it explicit avoids future confusion.
             if (eventId != null || resultTypeId != null) {
-                Join<Photo, PhotoEventTrack> trackJoin = root.join("eventTracks", JoinType.LEFT);
+                Join<Photo, PhotoEventTrack> trackJoin = root.join("eventTracks", JoinType.INNER);
 
                 if (eventId != null) {
                     predicates.add(cb.equal(trackJoin.get("event").get("id"), eventId));
