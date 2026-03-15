@@ -24,7 +24,6 @@ public class EventService {
         event.setType(dto.getType());
         event.setComplement(dto.getComplement());
         event.setAffiliation(dto.getAffiliation());
-        event.setCategory(dto.getCategory());
         event.setCity(dto.getCity());
         event.setState(dto.getState());
         event.setCountry(dto.getCountry());

@@ -36,7 +36,6 @@ public class Event {
 
     private String complement;
     private String affiliation;
-    private String category;
 
     // Geographic info as plain strings, as per architectural decision
     private String city;

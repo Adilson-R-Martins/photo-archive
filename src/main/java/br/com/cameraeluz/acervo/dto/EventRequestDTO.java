@@ -23,9 +23,6 @@ public class EventRequestDTO {
     private String complement;
     private String affiliation;
 
-    /** Category name within the event scope (e.g., Monochrome, Color). */
-    private String category;
-
     private String city;
     private String state;
     private String country;
