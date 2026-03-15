@@ -174,16 +174,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Fallback handler for unclassified runtime exceptions (e.g., duplicate username
-     * or e-mail during registration).
+     * Handles resource-conflict errors (e.g., duplicate username or e-mail on registration).
      *
-     * @param ex      the runtime exception.
+     * @param ex      the conflict exception.
      * @param request the current HTTP request.
      * @return {@code 409 Conflict} with the exception message.
      */
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<StandardError> handleRuntimeException(
-            RuntimeException ex, HttpServletRequest request) {
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<StandardError> handleConflict(
+            ConflictException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.CONFLICT.value(),
@@ -192,5 +191,26 @@ public class GlobalExceptionHandler {
                 null
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(err);
+    }
+
+    /**
+     * Fallback handler for any unclassified runtime exception not covered by a
+     * more specific handler above.
+     *
+     * @param ex      the unhandled runtime exception.
+     * @param request the current HTTP request.
+     * @return {@code 500 Internal Server Error}.
+     */
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<StandardError> handleRuntimeException(
+            RuntimeException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Internal Server Error",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 }

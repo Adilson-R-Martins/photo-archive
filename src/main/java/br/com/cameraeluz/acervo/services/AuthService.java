@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.services;
 
+import br.com.cameraeluz.acervo.exceptions.ConflictException;
 import br.com.cameraeluz.acervo.models.Role;
 import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.payload.request.LoginRequest;
@@ -67,16 +68,16 @@ public class AuthService {
      * Registers a new user account with the default {@code ROLE_USER} role.
      *
      * @param signUpRequest the registration data (username, e-mail, password).
-     * @throws RuntimeException if the username is already taken or the e-mail
+     * @throws ConflictException if the username is already taken or the e-mail
      *         address is already registered.
      */
     public void registerUser(SignupRequest signUpRequest) {
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            throw new RuntimeException(
+            throw new ConflictException(
                     "Username '" + signUpRequest.getUsername() + "' is already taken. Choose a different username.");
         }
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            throw new RuntimeException(
+            throw new ConflictException(
                     "Email address '" + signUpRequest.getEmail() + "' is already registered. Use a different address or sign in.");
         }
 
