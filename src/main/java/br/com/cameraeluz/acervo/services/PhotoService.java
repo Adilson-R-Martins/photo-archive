@@ -22,6 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.apache.tika.Tika;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -50,6 +54,8 @@ public class PhotoService {
 
     private static final List<String> ALLOWED_TYPES =
             List.of("image/jpeg", "image/png", "image/tiff", "image/webp");
+
+    private static final Tika TIKA = new Tika();
 
     /**
      * Searches photos using optional filters combined with free-text keyword search.
@@ -241,18 +247,26 @@ public class PhotoService {
     }
 
     /**
-     * Validates that the uploaded file's declared content type is an accepted image format.
+     * Validates the uploaded file's actual binary content against the list of accepted image formats.
      *
-     * <p>NOTE: for stronger guarantees, replace with Apache Tika magic-byte inspection.</p>
+     * <p>Uses Apache Tika to inspect the file's magic bytes rather than trusting the
+     * client-supplied {@code Content-Type} header, which can be trivially spoofed.
+     * Each call to {@link MultipartFile#getInputStream()} returns an independent stream
+     * from the stored upload data, so consuming it here does not affect later reads.</p>
      *
-     * @param file the multipart file whose content type is checked.
-     * @throws IllegalArgumentException if the content type is absent or not in the allowed list.
+     * @param file the multipart file to inspect.
+     * @throws IllegalArgumentException if the detected type is not in the allowed list,
+     *         or if the file content cannot be read.
      */
     private void validateFileType(MultipartFile file) {
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException(
-                    "Unsupported media type '" + contentType + "'. Accepted formats are JPEG, PNG, TIFF, and WebP.");
+        try (InputStream in = file.getInputStream()) {
+            String detected = TIKA.detect(in, file.getOriginalFilename());
+            if (!ALLOWED_TYPES.contains(detected)) {
+                throw new IllegalArgumentException(
+                        "Unsupported media type '" + detected + "'. Accepted formats: JPEG, PNG, TIFF, WebP.");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Could not read upload content for type validation.", e);
         }
     }
 }
