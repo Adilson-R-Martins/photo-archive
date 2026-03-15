@@ -75,7 +75,7 @@ public class AuthService {
     }
 
     /**
-     * Registers a new user account with the default {@code ROLE_USER} role.
+     * Registers a new user account with the default {@code ROLE_GUEST} role.
      *
      * @param signUpRequest the registration data (username, e-mail, password).
      * @throws ConflictException if the username is already taken or the e-mail

@@ -17,7 +17,7 @@ public class ResultTypeController {
     private final ResultTypeService resultTypeService;
 
     @GetMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('EDITOR')")
+    @PreAuthorize("hasAnyRole('GUEST', 'AUTHOR', 'EDITOR', 'ADMIN')")
     public List<ResultType> getAllResultTypes() {
         return resultTypeService.findAll();
     }

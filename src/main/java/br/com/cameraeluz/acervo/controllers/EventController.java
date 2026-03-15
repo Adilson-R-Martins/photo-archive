@@ -19,7 +19,7 @@ public class EventController {
     private final EventService eventService;
 
     @GetMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('EDITOR')")
+    @PreAuthorize("hasAnyRole('GUEST', 'AUTHOR', 'EDITOR', 'ADMIN')")
     public ResponseEntity<List<Event>> getAllEvents() {
         return ResponseEntity.ok(eventService.findAll());
     }
