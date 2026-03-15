@@ -38,11 +38,14 @@ public class DownloadPermissionController {
 
     /**
      * Grants (or updates) a download permission for a specific user/photo pair.
-     * Authorization is enforced in the service: only ADMIN, EDITOR, or the
-     * photo's owner may call this successfully.
+     *
+     * <p>GUEST users are excluded at this level because they cannot own photos
+     * and therefore can never satisfy the ownership check in the service layer.
+     * Fine-grained authorization (ADMIN/EDITOR vs. photo owner) is still enforced
+     * inside {@link DownloadPermissionService#grantPermission}.</p>
      */
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
     public ResponseEntity<DownloadPermissionResponseDTO> grantPermission(
             @Valid @RequestBody DownloadPermissionRequestDTO request,
             Authentication authentication) {
@@ -55,11 +58,13 @@ public class DownloadPermissionController {
 
     /**
      * Revokes an existing download permission.
-     * Authorization is enforced in the service: only ADMIN, EDITOR, or the
-     * photo's owner may revoke. An unauthorized AUTHOR receives 403.
+     *
+     * <p>GUEST users are excluded at this level for the same reason as
+     * {@link #grantPermission}: they cannot own photos, so they can never
+     * satisfy the ownership check in the service layer.</p>
      */
     @DeleteMapping("/{permissionId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
     public ResponseEntity<Void> revokePermission(
             @PathVariable UUID permissionId,
             Authentication authentication) {
