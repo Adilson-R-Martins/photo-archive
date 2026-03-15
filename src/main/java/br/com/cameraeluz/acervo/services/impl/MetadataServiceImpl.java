@@ -61,7 +61,7 @@ public class MetadataServiceImpl implements MetadataService {
                 }
             }
         } catch (Exception e) {
-            logger.warn("Não foi possível extrair metadados do arquivo '{}': {}",
+            logger.warn("Metadata extraction failed for '{}': {}. The file will be stored without EXIF/IPTC data.",
                     file.getOriginalFilename(), e.getMessage());
         }
 

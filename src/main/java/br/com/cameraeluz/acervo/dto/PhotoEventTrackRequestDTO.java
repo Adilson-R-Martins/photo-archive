@@ -3,15 +3,22 @@ package br.com.cameraeluz.acervo.dto;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+/**
+ * DTO for creating a photo participation record ({@link br.com.cameraeluz.acervo.models.PhotoEventTrack}).
+ *
+ * <p>Links a photo to an event with a result type, and optionally records
+ * the honor received and any additional notes.</p>
+ */
 @Data
 public class PhotoEventTrackRequestDTO {
-    @NotNull(message = "ID da foto é obrigatório.")
+
+    @NotNull(message = "Photo ID is required.")
     private Long photoId;
 
-    @NotNull(message = "ID do evento é obrigatório.")
+    @NotNull(message = "Event ID is required.")
     private Long eventId;
 
-    @NotNull(message = "ID do tipo de resultado é obrigatório.")
+    @NotNull(message = "Result type ID is required.")
     private Long resultTypeId;
 
     private String honor;

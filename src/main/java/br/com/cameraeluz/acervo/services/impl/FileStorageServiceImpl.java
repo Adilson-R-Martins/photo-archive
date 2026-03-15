@@ -17,16 +17,43 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * File-system implementation of {@link FileStorageService}.
+ *
+ * <p>Files are stored under a configurable root directory (property
+ * {@code photoarchive.app.upload-dir}) in a date-partitioned hierarchy:
+ * {@code {year}/{month}/photos/}. Each file is prefixed with a random UUID
+ * to prevent name collisions. A parallel {@code thumbnails/} directory at the
+ * same date level is managed by the image service.</p>
+ *
+ * <p>Path-traversal attacks are prevented by verifying that every resolved
+ * path starts with the configured base directory before any I/O is performed.</p>
+ */
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
     private final Path baseStorageLocation;
 
+    /**
+     * Initialises the service with the configured upload directory.
+     *
+     * @param uploadDir the value of {@code photoarchive.app.upload-dir};
+     *                  resolved to an absolute, normalised path at startup.
+     */
     public FileStorageServiceImpl(@Value("${photoarchive.app.upload-dir}") String uploadDir) {
-        // Agora aponta para "uploads"
         this.baseStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
     }
 
+    /**
+     * Stores a multipart file under a date-partitioned sub-directory and returns
+     * the relative path (using forward slashes) for later retrieval.
+     *
+     * @param file  the uploaded file to persist.
+     * @param title the display title associated with the file (currently unused in
+     *              path generation but reserved for future naming strategies).
+     * @return the relative storage path (e.g., {@code 2024/11/photos/uuid_photo.jpg}).
+     * @throws FileStorageException if the file cannot be written to disk.
+     */
     @Override
     public String storeFile(MultipartFile file, String title) {
         LocalDate now = LocalDate.now();
@@ -39,7 +66,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         try {
             Files.createDirectories(fullPath);
 
-            // Sanitiza o nome original para remover path traversal e caracteres perigosos
+            // Strip path separators and unsafe characters to prevent path traversal.
             String originalName = file.getOriginalFilename() != null
                     ? file.getOriginalFilename() : "file";
             String safeName = Paths.get(originalName).getFileName().toString()
@@ -50,17 +77,29 @@ public class FileStorageServiceImpl implements FileStorageService {
 
             return relativeFolder.resolve(fileName).toString().replace("\\", "/");
         } catch (IOException ex) {
-            throw new FileStorageException("Erro ao salvar arquivo", ex);
+            throw new FileStorageException(
+                    "Failed to store file '" + (file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown")
+                    + "'. Verify the upload directory is accessible and has sufficient space.", ex);
         }
     }
 
+    /**
+     * Loads a previously stored file as a Spring {@link Resource}.
+     *
+     * @param relativePath the relative path returned by {@link #storeFile}.
+     * @return a readable {@link Resource} pointing to the file.
+     * @throws FileStorageException if the path escapes the permitted directory,
+     *         if the file is not found or not readable, or if the path is malformed.
+     */
     @Override
     public Resource loadFileAsResource(String relativePath) {
         try {
             Path filePath = this.baseStorageLocation.resolve(relativePath).normalize();
 
             if (!filePath.startsWith(this.baseStorageLocation)) {
-                throw new FileStorageException("Acesso negado: caminho fora do diretório permitido.");
+                throw new FileStorageException(
+                        "Access denied: the resolved path escapes the permitted storage directory. "
+                        + "Possible path traversal attempt.");
             }
 
             Resource resource = new UrlResource(filePath.toUri());
@@ -68,10 +107,13 @@ public class FileStorageServiceImpl implements FileStorageService {
             if (resource.exists() || resource.isReadable()) {
                 return resource;
             } else {
-                throw new FileStorageException("Arquivo não encontrado ou ilegível: " + relativePath);
+                throw new FileStorageException(
+                        "File '" + relativePath + "' could not be found or is not readable. "
+                        + "The resource may have been moved or deleted.");
             }
         } catch (MalformedURLException ex) {
-            throw new FileStorageException("Erro ao localizar arquivo: " + relativePath, ex);
+            throw new FileStorageException(
+                    "Malformed path '" + relativePath + "'. Ensure the stored path is a valid URI.", ex);
         }
     }
 }

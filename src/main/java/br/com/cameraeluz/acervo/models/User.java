@@ -39,6 +39,10 @@ public class User {
     @Column(name = "artistic_name")
     private String artisticName;
 
+    /**
+     * Indicates whether the account is active. Inactive accounts cannot authenticate.
+     * Defaults to {@code true} for newly created users.
+     */
     private boolean active = true;
 
     /**

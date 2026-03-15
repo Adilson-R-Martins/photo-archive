@@ -14,24 +14,43 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Centralised exception handler for all REST controllers.
+ *
+ * <p>Maps application exceptions to structured {@link StandardError} responses
+ * with appropriate HTTP status codes. Each handler documents its covered
+ * exception type and the HTTP status it produces.</p>
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Entidade não encontrada no banco
+    /**
+     * Handles entity-not-found errors thrown when a database lookup returns no result.
+     *
+     * @param ex      the exception carrying the actionable message.
+     * @param request the current HTTP request (available for future path logging).
+     * @return {@code 404 Not Found} with the exception message as the error detail.
+     */
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<StandardError> handleEntityNotFound(
             EntityNotFoundException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
-                "Não Encontrado",
+                "Not Found",
                 ex.getMessage(),
                 null
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
     }
 
-    // 2. Erros de validação dos DTOs (@Valid / @NotNull)
+    /**
+     * Handles bean-validation failures produced by {@code @Valid} on request bodies.
+     *
+     * @param ex      the exception containing the list of field-level violations.
+     * @param request the current HTTP request.
+     * @return {@code 400 Bad Request} with all violation messages in the {@code details} list.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<StandardError> handleValidationExceptions(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
@@ -44,42 +63,62 @@ public class GlobalExceptionHandler {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
-                "Erro de Validação",
-                "Verifique os campos enviados na requisição",
+                "Validation Error",
+                "One or more request fields failed validation. See 'details' for the list of violations.",
                 errors
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
-    // 3. Erros de armazenamento de arquivo
+    /**
+     * Handles file-storage errors thrown by the storage layer (e.g., write failure,
+     * path-traversal attempt, or file-not-found on retrieval).
+     *
+     * @param ex      the storage exception.
+     * @param request the current HTTP request.
+     * @return {@code 500 Internal Server Error} with the exception message.
+     */
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<StandardError> handleFileStorageException(
             FileStorageException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Erro de Armazenamento",
+                "Storage Error",
                 ex.getMessage(),
                 null
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
     }
 
-    // 4. Tipo de arquivo inválido e foto inativa em evento (IllegalArgumentException / IllegalStateException)
+    /**
+     * Handles invalid-argument and invalid-state errors (e.g., unsupported media type,
+     * inactive photo submitted to an event).
+     *
+     * @param ex      the runtime exception.
+     * @param request the current HTTP request.
+     * @return {@code 400 Bad Request} with the exception message.
+     */
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ResponseEntity<StandardError> handleIllegalArgument(
             RuntimeException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
-                "Requisição Inválida",
+                "Bad Request",
                 ex.getMessage(),
                 null
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
-    // 5. Download permission explicitly revoked
+    /**
+     * Handles explicitly revoked download permissions.
+     *
+     * @param ex      the exception thrown when a permission record has been revoked.
+     * @param request the current HTTP request.
+     * @return {@code 403 Forbidden} with the exception message.
+     */
     @ExceptionHandler(DownloadRevokedException.class)
     public ResponseEntity<StandardError> handleDownloadRevoked(
             DownloadRevokedException ex, HttpServletRequest request) {
@@ -93,7 +132,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(err);
     }
 
-    // 6. Download limit exhausted
+    /**
+     * Handles exhausted download limits for a given permission record.
+     *
+     * @param ex      the exception thrown when the download counter reaches its maximum.
+     * @param request the current HTTP request.
+     * @return {@code 429 Too Many Requests} with the exception message.
+     */
     @ExceptionHandler(DownloadLimitReachedException.class)
     public ResponseEntity<StandardError> handleDownloadLimitReached(
             DownloadLimitReachedException ex, HttpServletRequest request) {
@@ -107,7 +152,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err);
     }
 
-    // 7. Caller lacks ownership or role to perform the requested operation
+    /**
+     * Handles access-denied errors thrown when the caller lacks the required
+     * role or ownership to perform the requested operation.
+     *
+     * @param ex      the Spring Security access-denied exception.
+     * @param request the current HTTP request.
+     * @return {@code 403 Forbidden} with the exception message.
+     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<StandardError> handleAccessDenied(
             AccessDeniedException ex, HttpServletRequest request) {
@@ -121,14 +173,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(err);
     }
 
-    // 8. Usuário ou e-mail duplicados no cadastro (AuthService.registerUser)
+    /**
+     * Fallback handler for unclassified runtime exceptions (e.g., duplicate username
+     * or e-mail during registration).
+     *
+     * @param ex      the runtime exception.
+     * @param request the current HTTP request.
+     * @return {@code 409 Conflict} with the exception message.
+     */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<StandardError> handleRuntimeException(
             RuntimeException ex, HttpServletRequest request) {
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.CONFLICT.value(),
-                "Conflito",
+                "Conflict",
                 ex.getMessage(),
                 null
         );

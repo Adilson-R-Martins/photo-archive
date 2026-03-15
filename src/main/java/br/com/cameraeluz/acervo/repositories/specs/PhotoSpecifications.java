@@ -11,19 +11,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Dynamic search engine for the Photo Archive.
- * Allows combining exact filters (Author, Event, Result) with free-text search (Metadata).
+ * Dynamic query builder for advanced photo search.
+ *
+ * <p>Combines exact filters (author, event, result type) with a free-text keyword
+ * search that spans the photo's primary title and all EXIF/IPTC metadata fields.
+ * All filters are optional and are composed with a logical AND; the keyword search
+ * uses a logical OR across all indexed text columns.</p>
  */
 public class PhotoSpecifications {
 
     /**
-     * Builds a combined query based on provided filters.
-     * * @param authorId Filter by the user who uploaded the photo.
+     * Builds a combined {@link Specification} based on the provided filters.
      *
-     * @param eventId      Filter by participation in a specific event.
-     * @param resultTypeId Filter by a specific award or result type.
-     * @param keyword      Global search across titles and EXIF/IPTC metadata.
-     * @return A dynamic Specification for JPA.
+     * <p>Only active photos are ever included in results. Filters that are
+     * {@code null} are silently ignored, making every parameter optional.</p>
+     *
+     * @param authorId     restricts results to photos uploaded by the user with this id.
+     * @param eventId      restricts results to photos that participated in this event.
+     * @param resultTypeId restricts results to photos that achieved this result type.
+     * @param keyword      free-text search applied to the photo title and all EXIF/IPTC fields.
+     * @return a dynamic {@link Specification} ready to be passed to a JPA repository.
      */
     public static Specification<Photo> withAdvancedFilters(Long authorId, Long eventId, Long resultTypeId, String keyword) {
 
@@ -60,12 +67,11 @@ public class PhotoSpecifications {
 
                 List<Predicate> orPredicates = new ArrayList<>();
 
-                // 1. Busca no título PRINCIPAL da Photo (root)
+                // Match against the photo's primary title.
                 orPredicates.add(cb.like(cb.lower(root.get("title")), pattern));
 
-                // 2. Busca no título e outros campos do EXIF (root.exifData)
+                // Match against EXIF/IPTC metadata fields.
                 for (String field : exifFields) {
-                    // Importante: certifique-se que sua classe ExifData tenha o campo "title"
                     orPredicates.add(cb.like(cb.lower(root.get("exifData").get(field)), pattern));
                 }
 

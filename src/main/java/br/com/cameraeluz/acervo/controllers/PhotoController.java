@@ -32,6 +32,14 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller exposing photo-related endpoints: view, download, upload,
+ * update, delete, and search.
+ *
+ * <p>Access control is enforced at two levels: method-level {@code @PreAuthorize}
+ * annotations for coarse-grained role checks, and {@link DownloadPermissionService}
+ * for fine-grained download permission validation.</p>
+ */
 @RestController
 @RequestMapping("/api/photos")
 @RequiredArgsConstructor
@@ -42,13 +50,22 @@ public class PhotoController {
     private final PhotoRepository photoRepository;
     private final DownloadPermissionService downloadPermissionService;
 
+    /**
+     * Serves the web-optimised version of a photo inline (for browser display).
+     *
+     * <p>Returns {@code 410 Gone} if the photo exists but has been soft-deleted.
+     * Visibility rules (PUBLIC vs. PRIVATE) are enforced by the security filter chain.</p>
+     *
+     * @param request the current HTTP request used to extract the path suffix.
+     * @return the image resource with an appropriate {@code Content-Type} header.
+     * @throws EntityNotFoundException if no photo matches the requested path.
+     */
     @GetMapping("/view/**")
     public ResponseEntity<Resource> viewPhoto(HttpServletRequest request) {
         String path = extractPath(request, "/api/photos/view/");
 
-        // Verifica se a foto existe e está ativa antes de servir
         Photo photo = photoRepository.findByWebOptimizedPath(path)
-                .orElseThrow(() -> new EntityNotFoundException("Foto não encontrada."));
+                .orElseThrow(() -> new EntityNotFoundException("Photo was not found at the requested path."));
 
         if (!photo.isActive()) {
             return ResponseEntity.status(HttpStatus.GONE).build();
@@ -63,7 +80,13 @@ public class PhotoController {
                 .body(resource);
     }
 
-    // Metodo auxiliar para extrair o caminho
+    /**
+     * Extracts the path suffix that follows a fixed prefix from the request URI.
+     *
+     * @param request the incoming HTTP request.
+     * @param prefix  the leading URI segment to strip (e.g., {@code "/api/photos/view/"}).
+     * @return the portion of the URI after the prefix.
+     */
     private String extractPath(HttpServletRequest request, String prefix) {
         String fullPath = request.getRequestURI();
         return fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
@@ -81,9 +104,15 @@ public class PhotoController {
      * Downloads the original high-resolution file for a photo.
      *
      * <p>Authorization is delegated to {@link DownloadPermissionService#canDownload},
-     * which enforces the full precedence chain (ADMIN/EDITOR > owner > permission record).
+     * which enforces the full precedence chain (ADMIN/EDITOR &gt; owner &gt; permission record).
      * The download counter is atomically incremented inside that call when a permission
      * record is consumed.</p>
+     *
+     * @param photoId        the id of the photo to download.
+     * @param authentication the caller's authentication object.
+     * @return the original file as an attachment.
+     * @throws EntityNotFoundException if the photo does not exist or the caller's
+     *                                 permission record is not found.
      */
     @GetMapping("/download/{photoId}")
     @PreAuthorize("isAuthenticated()")
@@ -120,6 +149,18 @@ public class PhotoController {
                 .body(resource);
     }
 
+    /**
+     * Uploads a new photo to the archive.
+     *
+     * <p>Accepts a multipart form with the image file, display title, optional
+     * artistic author name override, and one or more category ids.</p>
+     *
+     * @param file               the image file (JPEG, PNG, TIFF, or WebP).
+     * @param title              the display title for the photo.
+     * @param artisticAuthorName optional override for the artistic author name.
+     * @param categoryIds        the set of category ids to associate with the photo.
+     * @return the persisted photo as a {@link PhotoResponseDTO}.
+     */
     @PostMapping("/upload")
     @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
     public ResponseEntity<PhotoResponseDTO> uploadPhoto(
@@ -131,6 +172,15 @@ public class PhotoController {
         return ResponseEntity.ok(photoService.uploadPhoto(file, title, artisticAuthorName, categoryIds));
     }
 
+    /**
+     * Updates mutable fields of an existing photo.
+     *
+     * <p>Callers must be ADMIN, EDITOR, or the photo's original uploader.</p>
+     *
+     * @param id  the id of the photo to update.
+     * @param dto the partial update payload.
+     * @return the updated photo as a {@link PhotoResponseDTO}.
+     */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR') or @photoService.isOwner(authentication.name, #id)")
     public ResponseEntity<PhotoResponseDTO> updatePhoto(
@@ -139,6 +189,14 @@ public class PhotoController {
         return ResponseEntity.ok(photoService.updatePhoto(id, dto));
     }
 
+    /**
+     * Soft-deletes a photo by setting its {@code active} flag to {@code false}.
+     *
+     * <p>Callers must be ADMIN, EDITOR, or the photo's original uploader.</p>
+     *
+     * @param id the id of the photo to deactivate.
+     * @return {@code 204 No Content} on success.
+     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR') or @photoService.isOwner(authentication.name, #id)")
     public ResponseEntity<Void> deletePhoto(@PathVariable Long id) {
@@ -150,8 +208,15 @@ public class PhotoController {
 
     /**
      * Searches photos with optional filters and pagination.
-     * <p>
-     * Example: GET /api/photos/search?keyword=passaro&page=0&size=20&sort=createdAt,desc
+     *
+     * <p>Example: {@code GET /api/photos/search?keyword=bird&page=0&size=20&sort=createdAt,desc}</p>
+     *
+     * @param authorId     optional filter by uploader user id.
+     * @param eventId      optional filter by event id.
+     * @param resultTypeId optional filter by result type id.
+     * @param keyword      optional free-text keyword searched across title and EXIF/IPTC fields.
+     * @param pageable     pagination and sorting parameters.
+     * @return a paginated list of matching photos as {@link PhotoResponseDTO}.
      */
     @GetMapping("/search")
     public ResponseEntity<Page<PhotoResponseDTO>> searchPhotos(

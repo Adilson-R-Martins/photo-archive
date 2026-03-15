@@ -14,20 +14,22 @@ import java.time.LocalDate;
 @Data
 public class EventRequestDTO {
 
-    @NotBlank(message = "O nome do evento é obrigatório.")
+    @NotBlank(message = "Event name is required.")
     private String name;
 
-    @NotNull(message = "O tipo de evento é obrigatório (CONTEST ou EXHIBITION).")
+    @NotNull(message = "Event type is required. Accepted values: CONTEST, EXHIBITION.")
     private EventType type;
 
     private String complement;
     private String affiliation;
-    private String category; // Categoria dentro do evento (Ex: Monocromo, Cor)
+
+    /** Category name within the event scope (e.g., Monochrome, Color). */
+    private String category;
 
     private String city;
     private String state;
     private String country;
 
-    @NotNull(message = "A data do evento é obrigatória para fins de rastreabilidade.")
+    @NotNull(message = "Event date is required for traceability purposes.")
     private LocalDate eventDate;
 }
