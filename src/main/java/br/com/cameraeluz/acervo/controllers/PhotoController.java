@@ -46,6 +46,37 @@ public class PhotoController {
     private final DownloadPermissionService downloadPermissionService;
 
     /**
+     * Returns a paginated list of all active photos, ordered by most recent first.
+     *
+     * <p>Equivalent to calling {@code GET /api/photos/search} with no filters.
+     * Visibility rules (PUBLIC vs. PRIVATE) are enforced by the security filter chain.</p>
+     *
+     * @param pageable pagination and sorting parameters.
+     * @return a paginated list of active photos as {@link PhotoResponseDTO}.
+     */
+    @GetMapping
+    public ResponseEntity<Page<PhotoResponseDTO>> listPhotos(
+            @PageableDefault(size = 20, sort = "createdAt",
+                    direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(
+                photoService.searchPhotos(null, null, null, null, pageable));
+    }
+
+    /**
+     * Returns the full detail of a single photo by its id.
+     *
+     * <p>Visibility rules (PUBLIC vs. PRIVATE) are enforced by the security filter chain.</p>
+     *
+     * @param id the photo id.
+     * @return the photo as a {@link PhotoResponseDTO}.
+     * @throws EntityNotFoundException if no photo with the given id exists.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<PhotoResponseDTO> getPhoto(@PathVariable Long id) {
+        return ResponseEntity.ok(photoService.getPhotoById(id));
+    }
+
+    /**
      * Serves the web-optimised version of a photo inline (for browser display).
      *
      * <p>Returns {@code 410 Gone} if the photo exists but has been soft-deleted.

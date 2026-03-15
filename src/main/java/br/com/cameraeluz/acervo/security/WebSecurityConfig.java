@@ -93,10 +93,14 @@ public class WebSecurityConfig {
                         // Photo visibility is runtime-configurable; PUBLIC mode opens view and search to anonymous users.
                         if ("PUBLIC".equalsIgnoreCase(photoVisibility)) {
                             auth.requestMatchers("/api/photos/view/**").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").permitAll();
+                                    .requestMatchers(HttpMethod.GET, "/api/photos").permitAll()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").permitAll()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/{id}").permitAll();
                         } else {
                             auth.requestMatchers("/api/photos/view/**").authenticated()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated();
+                                    .requestMatchers(HttpMethod.GET, "/api/photos").authenticated()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated()
+                                    .requestMatchers(HttpMethod.GET, "/api/photos/{id}").authenticated();
                         }
                         // Download: any authenticated user — fine-grained permission check is in DownloadPermissionService
                         auth.requestMatchers(HttpMethod.GET, "/api/photos/download/**").authenticated()

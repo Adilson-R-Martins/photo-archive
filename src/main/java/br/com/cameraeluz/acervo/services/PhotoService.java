@@ -254,6 +254,21 @@ public class PhotoService {
                         "Photo not found with id: " + id));
     }
 
+    /**
+     * Returns the full detail of a single photo as a response DTO.
+     *
+     * @param id the photo id.
+     * @return the photo as a {@link PhotoResponseDTO}.
+     * @throws EntityNotFoundException if no photo with the given id exists.
+     */
+    @Transactional(readOnly = true)
+    public PhotoResponseDTO getPhotoById(Long id) {
+        Photo photo = photoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Photo not found with id: " + id));
+        return convertToDTO(photo);
+    }
+
     private ExifDataDTO toExifDataDTO(ExifData exif) {
         if (exif == null) {
             return null;
