@@ -2,6 +2,8 @@ package br.com.cameraeluz.acervo.exceptions;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +25,8 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * Handles entity-not-found errors thrown when a database lookup returns no result.
@@ -197,18 +201,23 @@ public class GlobalExceptionHandler {
      * Fallback handler for any unclassified runtime exception not covered by a
      * more specific handler above.
      *
+     * <p>The real exception message is logged server-side only — never forwarded to the
+     * client — to prevent leaking internal implementation details (SQL error text,
+     * Hibernate class names, file-system paths, etc.).</p>
+     *
      * @param ex      the unhandled runtime exception.
      * @param request the current HTTP request.
-     * @return {@code 500 Internal Server Error}.
+     * @return {@code 500 Internal Server Error} with a generic, safe message.
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<StandardError> handleRuntimeException(
             RuntimeException ex, HttpServletRequest request) {
+        logger.error("Unhandled exception at [{}]: {}", request.getRequestURI(), ex.getMessage(), ex);
         StandardError err = new StandardError(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
-                ex.getMessage(),
+                "An unexpected error occurred. Please contact support if the problem persists.",
                 null
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);

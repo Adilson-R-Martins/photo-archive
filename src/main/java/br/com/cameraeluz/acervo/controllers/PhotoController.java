@@ -141,14 +141,20 @@ public class PhotoController {
 
         Resource resource = fileStorageService.loadFileAsResource(photo.getStoragePath());
         String contentType = determineContentType(resource);
-        String filename = photo.getOriginalFileName() != null
+
+        // Sanitize the filename before embedding it in the Content-Disposition header.
+        // Raw filenames stored in the DB may contain quotes or CRLF sequences that could
+        // inject additional HTTP response headers or corrupt the header value.
+        String rawFilename = photo.getOriginalFileName() != null
                 ? photo.getOriginalFileName()
                 : resource.getFilename();
+        String safeFilename = (rawFilename != null ? rawFilename : "photo")
+                .replaceAll("[^a-zA-Z0-9._\\- ]", "_");
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + filename + "\"")
+                        "attachment; filename=\"" + safeFilename + "\"")
                 .body(resource);
     }
 
