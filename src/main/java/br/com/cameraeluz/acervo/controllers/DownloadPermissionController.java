@@ -80,6 +80,27 @@ public class DownloadPermissionController {
     }
 
     /**
+     * Returns the calling user's own download permissions, paginated.
+     *
+     * <p>Allows any authenticated user to inspect which photos they have been
+     * granted access to download and how many downloads they have remaining.
+     * Only the caller's own permissions are ever returned.</p>
+     *
+     * @param pageable       pagination and sorting parameters.
+     * @param authentication the current security context.
+     * @return a paginated list of {@link DownloadPermissionResponseDTO} for the caller.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<Page<DownloadPermissionResponseDTO>> getMyPermissions(
+            @PageableDefault(size = 20, sort = "grantedAt",
+                    direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authentication) {
+
+        Long currentUserId = SecurityUtils.getUserDetails(authentication).getId();
+        return ResponseEntity.ok(permissionService.listPermissions(null, currentUserId, pageable));
+    }
+
+    /**
      * Returns a paginated list of download permissions with optional filters.
      * Restricted to ADMIN and EDITOR roles.
      *
