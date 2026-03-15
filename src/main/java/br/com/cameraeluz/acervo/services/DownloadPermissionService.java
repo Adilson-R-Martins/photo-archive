@@ -12,14 +12,14 @@ import br.com.cameraeluz.acervo.repositories.PhotoRepository;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Core service for the download permission system.
@@ -213,25 +213,29 @@ public class DownloadPermissionService {
     // =========================================================================
 
     /**
-     * Returns all permission records, optionally filtered by {@code photoId} or
-     * {@code userId}. When both are null, all records are returned.
-     * {@code photoId} takes precedence over {@code userId} when both are provided.
+     * Returns a paginated list of permission records, optionally filtered by
+     * {@code photoId} or {@code userId}. When both are {@code null}, all records
+     * are returned. {@code photoId} takes precedence over {@code userId} when both
+     * are provided.
+     *
+     * @param photoId  optional filter by photo id.
+     * @param userId   optional filter by user id.
+     * @param pageable pagination and sorting parameters.
+     * @return a {@link Page} of {@link DownloadPermissionResponseDTO}.
      */
     @Transactional(readOnly = true)
-    public List<DownloadPermissionResponseDTO> listPermissions(Long photoId, Long userId) {
-        List<DownloadPermission> permissions;
+    public Page<DownloadPermissionResponseDTO> listPermissions(Long photoId, Long userId, Pageable pageable) {
+        Page<DownloadPermission> permissions;
 
         if (photoId != null) {
-            permissions = permissionRepository.findAllByPhotoId(photoId);
+            permissions = permissionRepository.findAllByPhotoId(photoId, pageable);
         } else if (userId != null) {
-            permissions = permissionRepository.findAllByUserId(userId);
+            permissions = permissionRepository.findAllByUserId(userId, pageable);
         } else {
-            permissions = permissionRepository.findAll();
+            permissions = permissionRepository.findAll(pageable);
         }
 
-        return permissions.stream()
-                .map(this::toResponseDTO)
-                .collect(Collectors.toList());
+        return permissions.map(this::toResponseDTO);
     }
 
     // =========================================================================

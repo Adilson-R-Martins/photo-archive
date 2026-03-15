@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,11 +50,11 @@ public interface DownloadPermissionRepository extends JpaRepository<DownloadPerm
             @Param("photoId") Long photoId
     );
 
-    /** Returns all permissions associated with a given photo (admin/editor listing). */
+    /** Returns a page of permissions associated with a given photo (admin/editor listing). */
     @Query("SELECT dp FROM DownloadPermission dp WHERE dp.photo.id = :photoId")
-    List<DownloadPermission> findAllByPhotoId(@Param("photoId") Long photoId);
+    Page<DownloadPermission> findAllByPhotoId(@Param("photoId") Long photoId, Pageable pageable);
 
-    /** Returns all permissions granted to a given user (admin/editor listing). */
+    /** Returns a page of permissions granted to a given user (admin/editor listing). */
     @Query("SELECT dp FROM DownloadPermission dp WHERE dp.user.id = :userId")
-    List<DownloadPermission> findAllByUserId(@Param("userId") Long userId);
+    Page<DownloadPermission> findAllByUserId(@Param("userId") Long userId, Pageable pageable);
 }

@@ -6,6 +6,10 @@ import br.com.cameraeluz.acervo.security.UserDetailsImpl;
 import br.com.cameraeluz.acervo.services.DownloadPermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,7 +17,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -75,19 +78,25 @@ public class DownloadPermissionController {
     }
 
     /**
-     * Lists download permissions with optional filters.
+     * Returns a paginated list of download permissions with optional filters.
      * Restricted to ADMIN and EDITOR roles.
      *
-     * @param photoId Filter by photo (optional).
-     * @param userId  Filter by user (optional). Ignored when {@code photoId} is present.
+     * <p>Example: {@code GET /api/downloads/permissions?photoId=5&page=0&size=20&sort=grantedAt,desc}</p>
+     *
+     * @param photoId  filter by photo id (optional).
+     * @param userId   filter by user id (optional). Ignored when {@code photoId} is present.
+     * @param pageable pagination and sorting parameters.
+     * @return a paginated list of {@link DownloadPermissionResponseDTO}.
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR')")
-    public ResponseEntity<List<DownloadPermissionResponseDTO>> listPermissions(
+    public ResponseEntity<Page<DownloadPermissionResponseDTO>> listPermissions(
             @RequestParam(required = false) Long photoId,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId,
+            @PageableDefault(size = 20, sort = "grantedAt",
+                    direction = Sort.Direction.DESC) Pageable pageable) {
 
-        return ResponseEntity.ok(permissionService.listPermissions(photoId, userId));
+        return ResponseEntity.ok(permissionService.listPermissions(photoId, userId, pageable));
     }
 
     // -------------------------------------------------------------------------
