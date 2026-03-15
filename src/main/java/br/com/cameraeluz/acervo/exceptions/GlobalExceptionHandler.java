@@ -4,6 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -78,7 +79,49 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
     }
 
-    // 5. Usuário ou e-mail duplicados no cadastro (AuthService.registerUser)
+    // 5. Download permission explicitly revoked
+    @ExceptionHandler(DownloadRevokedException.class)
+    public ResponseEntity<StandardError> handleDownloadRevoked(
+            DownloadRevokedException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "Download Revoked",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(err);
+    }
+
+    // 6. Download limit exhausted
+    @ExceptionHandler(DownloadLimitReachedException.class)
+    public ResponseEntity<StandardError> handleDownloadLimitReached(
+            DownloadLimitReachedException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Download Limit Reached",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(err);
+    }
+
+    // 7. Caller lacks ownership or role to perform the requested operation
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<StandardError> handleAccessDenied(
+            AccessDeniedException ex, HttpServletRequest request) {
+        StandardError err = new StandardError(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "Access Denied",
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(err);
+    }
+
+    // 8. Usuário ou e-mail duplicados no cadastro (AuthService.registerUser)
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<StandardError> handleRuntimeException(
             RuntimeException ex, HttpServletRequest request) {

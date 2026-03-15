@@ -65,8 +65,13 @@ public class WebSecurityConfig {
                             auth.requestMatchers("/api/photos/view/**").authenticated()
                                     .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated();
                         }
-                        // Download e Tracks exigem qualquer nível de autenticação
-                        auth.requestMatchers("/api/photos/download/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
+                        // Download: any authenticated user — fine-grained permission check is in DownloadPermissionService
+                        auth.requestMatchers(HttpMethod.GET, "/api/photos/download/**").authenticated()
+                                // Download permission management (order: specific before generic)
+                                .requestMatchers(HttpMethod.GET, "/api/downloads/permissions").hasAnyRole("ADMIN", "EDITOR")
+                                .requestMatchers(HttpMethod.POST, "/api/downloads/permissions").authenticated()
+                                .requestMatchers(HttpMethod.DELETE, "/api/downloads/permissions/**").authenticated()
+                                // Tracks require any level of authentication
                                 .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
                                 // Upload e Edição/Delete (Soft Delete)
                                 .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")

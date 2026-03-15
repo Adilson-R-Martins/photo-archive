@@ -4,6 +4,8 @@ import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import br.com.cameraeluz.acervo.dto.PhotoUpdateDTO;
 import br.com.cameraeluz.acervo.models.Photo;
 import br.com.cameraeluz.acervo.repositories.PhotoRepository;
+import br.com.cameraeluz.acervo.security.UserDetailsImpl;
+import br.com.cameraeluz.acervo.services.DownloadPermissionService;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.PhotoService;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,12 +22,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/photos")
@@ -34,7 +39,8 @@ public class PhotoController {
 
     private final FileStorageService fileStorageService;
     private final PhotoService photoService;
-    private final PhotoRepository photoRepository;// Adicionado para resolver o erro de chamada
+    private final PhotoRepository photoRepository;
+    private final DownloadPermissionService downloadPermissionService;
 
     @GetMapping("/view/**")
     public ResponseEntity<Resource> viewPhoto(HttpServletRequest request) {
@@ -69,6 +75,49 @@ public class PhotoController {
         } catch (IOException e) {
             return "image/jpeg";
         }
+    }
+
+    /**
+     * Downloads the original high-resolution file for a photo.
+     *
+     * <p>Authorization is delegated to {@link DownloadPermissionService#canDownload},
+     * which enforces the full precedence chain (ADMIN/EDITOR > owner > permission record).
+     * The download counter is atomically incremented inside that call when a permission
+     * record is consumed.</p>
+     */
+    @GetMapping("/download/{photoId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Resource> downloadPhoto(
+            @PathVariable Long photoId,
+            Authentication authentication) {
+
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new EntityNotFoundException("Photo not found with id: " + photoId));
+
+        if (!photo.isActive()) {
+            return ResponseEntity.status(HttpStatus.GONE).build();
+        }
+
+        UserDetailsImpl caller = (UserDetailsImpl) authentication.getPrincipal();
+        Collection<String> roles = authentication.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .collect(Collectors.toList());
+
+        // Throws DownloadRevokedException / DownloadLimitReachedException / EntityNotFoundException
+        // if the caller is not authorized. Atomically increments the counter if applicable.
+        downloadPermissionService.canDownload(caller.getId(), photoId, roles);
+
+        Resource resource = fileStorageService.loadFileAsResource(photo.getStoragePath());
+        String contentType = determineContentType(resource);
+        String filename = photo.getOriginalFileName() != null
+                ? photo.getOriginalFileName()
+                : resource.getFilename();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .body(resource);
     }
 
     @PostMapping("/upload")
