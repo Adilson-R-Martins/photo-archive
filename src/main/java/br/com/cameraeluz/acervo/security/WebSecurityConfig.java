@@ -19,6 +19,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Arrays;
 
 /**
  * Spring Security configuration for the Photo Archive application.
@@ -34,6 +35,14 @@ public class WebSecurityConfig {
     @Value("${photoarchive.app.photo-visibility:PRIVATE}")
     private String photoVisibility;
 
+    /**
+     * Comma-separated list of allowed CORS origins.
+     * Override via the {@code ALLOWED_ORIGINS} environment variable in each deployment environment.
+     * Never use a wildcard ({@code *}) together with {@code allowCredentials(true)}.
+     */
+    @Value("${photoarchive.app.allowed-origins}")
+    private String allowedOrigins;
+
     private final AuthEntryPointJwt unauthorizedHandler;
 
     public WebSecurityConfig(AuthEntryPointJwt unauthorizedHandler) {
@@ -43,6 +52,11 @@ public class WebSecurityConfig {
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
         return new AuthTokenFilter();
+    }
+
+    @Bean
+    public RateLimitFilter rateLimitFilter() {
+        return new RateLimitFilter();
     }
 
     @Bean
@@ -99,7 +113,11 @@ public class WebSecurityConfig {
                                 .anyRequest().authenticated();
                 });
 
-        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        // authTokenFilter runs before the standard username/password filter (JWT chain).
+        // rateLimitFilter runs before authTokenFilter so abusive IPs are rejected first,
+        // before any DB or JWT processing occurs.
+        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(rateLimitFilter(), AuthTokenFilter.class);
 
         return http.build();
     }
@@ -107,7 +125,9 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("https://seudominio.com.br")); // Replace with the actual deployed frontend origin.
+        // Origins are loaded from photoarchive.app.allowed-origins (env: ALLOWED_ORIGINS).
+        // Supports multiple origins separated by commas, e.g.: https://app.domain.com,https://admin.domain.com
+        config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);

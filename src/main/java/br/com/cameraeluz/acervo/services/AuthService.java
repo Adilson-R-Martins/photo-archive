@@ -11,6 +11,7 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.security.JwtUtils;
 import br.com.cameraeluz.acervo.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -34,6 +35,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    /**
+     * When {@code true}, new accounts are created with {@code active = false} and must be
+     * explicitly activated by an admin via {@code PUT /api/admin/users/{id}/status}.
+     * Configured via {@code REQUIRE_ADMIN_APPROVAL} environment variable.
+     */
+    @Value("${photoarchive.app.require-admin-approval:false}")
+    private boolean requireAdminApproval;
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
@@ -87,7 +96,13 @@ public class AuthService {
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
-        user.setRoles(Set.of(getRoleByName("ROLE_USER"))); // New accounts always receive the least-privileged role.
+        // ROLE_GUEST is the least-privileged named role used in authorization rules.
+        // ROLE_USER was previously assigned but is not referenced in any security rule,
+        // so accounts with that role had no meaningful access.
+        user.setRoles(Set.of(getRoleByName("ROLE_GUEST")));
+        // When admin approval is required, the account starts inactive and must be
+        // explicitly activated via PUT /api/admin/users/{id}/status before first login.
+        user.setActive(!requireAdminApproval);
 
         userRepository.save(user);
     }
