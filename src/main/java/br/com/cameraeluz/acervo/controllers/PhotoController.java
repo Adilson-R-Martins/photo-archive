@@ -4,7 +4,7 @@ import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import br.com.cameraeluz.acervo.dto.PhotoUpdateDTO;
 import br.com.cameraeluz.acervo.models.Photo;
 import br.com.cameraeluz.acervo.repositories.PhotoRepository;
-import br.com.cameraeluz.acervo.security.UserDetailsImpl;
+import br.com.cameraeluz.acervo.security.SecurityUtils;
 import br.com.cameraeluz.acervo.services.DownloadPermissionService;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.PhotoService;
@@ -28,9 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * REST controller exposing photo-related endpoints: view, download, upload,
@@ -127,14 +125,12 @@ public class PhotoController {
             return ResponseEntity.status(HttpStatus.GONE).build();
         }
 
-        UserDetailsImpl caller = (UserDetailsImpl) authentication.getPrincipal();
-        Collection<String> roles = authentication.getAuthorities().stream()
-                .map(a -> a.getAuthority())
-                .collect(Collectors.toList());
-
         // Throws DownloadRevokedException / DownloadLimitReachedException / EntityNotFoundException
         // if the caller is not authorized. Atomically increments the counter if applicable.
-        downloadPermissionService.canDownload(caller.getId(), photoId, roles);
+        downloadPermissionService.canDownload(
+                SecurityUtils.getUserDetails(authentication).getId(),
+                photoId,
+                SecurityUtils.extractRoles(authentication));
 
         Resource resource = fileStorageService.loadFileAsResource(photo.getStoragePath());
         String contentType = determineContentType(resource);

@@ -2,7 +2,7 @@ package br.com.cameraeluz.acervo.controllers;
 
 import br.com.cameraeluz.acervo.dto.DownloadPermissionRequestDTO;
 import br.com.cameraeluz.acervo.dto.DownloadPermissionResponseDTO;
-import br.com.cameraeluz.acervo.security.UserDetailsImpl;
+import br.com.cameraeluz.acervo.security.SecurityUtils;
 import br.com.cameraeluz.acervo.services.DownloadPermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * REST API for managing download permissions.
@@ -53,9 +51,11 @@ public class DownloadPermissionController {
             @Valid @RequestBody DownloadPermissionRequestDTO request,
             Authentication authentication) {
 
-        UserDetailsImpl caller = (UserDetailsImpl) authentication.getPrincipal();
         DownloadPermissionResponseDTO response =
-                permissionService.grantPermission(caller.getId(), extractRoles(authentication), request);
+                permissionService.grantPermission(
+                        SecurityUtils.getUserDetails(authentication).getId(),
+                        SecurityUtils.extractRoles(authentication),
+                        request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -72,8 +72,10 @@ public class DownloadPermissionController {
             @PathVariable UUID permissionId,
             Authentication authentication) {
 
-        UserDetailsImpl caller = (UserDetailsImpl) authentication.getPrincipal();
-        permissionService.revokePermission(caller.getId(), extractRoles(authentication), permissionId);
+        permissionService.revokePermission(
+                SecurityUtils.getUserDetails(authentication).getId(),
+                SecurityUtils.extractRoles(authentication),
+                permissionId);
         return ResponseEntity.noContent().build();
     }
 
@@ -99,11 +101,4 @@ public class DownloadPermissionController {
         return ResponseEntity.ok(permissionService.listPermissions(photoId, userId, pageable));
     }
 
-    // -------------------------------------------------------------------------
-
-    private Collection<String> extractRoles(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .map(a -> a.getAuthority())
-                .collect(Collectors.toList());
-    }
 }
