@@ -4,7 +4,7 @@
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.3-6DB33F?logo=springboot&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8%2B-4479A1?logo=mysql&logoColor=white)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen)
-![License](https://img.shields.io/badge/license-proprietary-lightgrey)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 A production-ready REST API for managing a photographic archive.
 Core value proposition: **Atomic Permission & Revocation** — every download of a
@@ -421,3 +421,13 @@ Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chor
 
 - `master` — production-ready state; all merges require a passing build.
 - Semantic Versioning (`MAJOR.MINOR.PATCH`) will be applied at first stable release.
+
+### License
+
+This project is open source and distributed under the **Apache License 2.0**.
+
+You are free to use, modify, and distribute this software, including for commercial purposes,
+provided that you retain the original copyright notice and license text in all copies or
+substantial portions of the software.
+
+See the full license text at: https://www.apache.org/licenses/LICENSE-2.0
