@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import org.apache.tika.Tika;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -305,7 +306,7 @@ public class PhotoService {
         if (file.isEmpty()) {
             throw new IllegalArgumentException("Upload file is empty. Please attach a valid image file.");
         }
-        try (InputStream in = file.getInputStream()) {
+        try (InputStream in = new BufferedInputStream(file.getInputStream())) {
             String detected = TIKA.detect(in, file.getOriginalFilename());
             if (!ALLOWED_TYPES.contains(detected)) {
                 throw new IllegalArgumentException(
