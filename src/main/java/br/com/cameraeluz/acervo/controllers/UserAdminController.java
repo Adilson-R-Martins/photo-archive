@@ -1,14 +1,14 @@
 package br.com.cameraeluz.acervo.controllers;
 
+import br.com.cameraeluz.acervo.dto.UserRolesUpdateRequest;
 import br.com.cameraeluz.acervo.payload.response.MessageResponse;
 import br.com.cameraeluz.acervo.services.UserAdminService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Set;
 
 /**
  * Admin-only REST controller for managing user accounts.
@@ -27,11 +27,11 @@ public class UserAdminController {
      * Replaces the full set of roles assigned to a user.
      *
      * <p>Any roles previously assigned are discarded and replaced with the
-     * exact set provided in the request body.</p>
+     * exact set provided in the request body. The payload must contain at least
+     * one valid role name; an empty set would silently strip all access from the user.</p>
      *
-     * @param id    the id of the user whose roles will be updated.
-     * @param roles the set of role names to assign
-     *              (e.g., {@code "ROLE_EDITOR"}, {@code "ROLE_AUTHOR"}).
+     * @param id      the id of the user whose roles will be updated.
+     * @param request the validated request body containing the new role set.
      * @return {@code 200 OK} with a confirmation message.
      * @throws EntityNotFoundException if no user or role with the given id/name exists.
      */
@@ -39,9 +39,9 @@ public class UserAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> updateUserRoles(
             @PathVariable Long id,
-            @RequestBody Set<String> roles) {
+            @Valid @RequestBody UserRolesUpdateRequest request) {
 
-        userAdminService.updateUserRoles(id, roles);
+        userAdminService.updateUserRoles(id, request.getRoles());
         return ResponseEntity.ok(new MessageResponse("User roles updated successfully."));
     }
 
