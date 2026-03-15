@@ -79,15 +79,22 @@ public class PhotoController {
     }
 
     /**
-     * Extracts the path suffix that follows a fixed prefix from the request URI.
+     * Extracts the path suffix that follows a fixed prefix from the request URI
+     * and rejects any path containing traversal sequences.
      *
      * @param request the incoming HTTP request.
      * @param prefix  the leading URI segment to strip (e.g., {@code "/api/photos/view/"}).
      * @return the portion of the URI after the prefix.
+     * @throws IllegalArgumentException if the extracted path contains {@code ..}.
      */
     private String extractPath(HttpServletRequest request, String prefix) {
         String fullPath = request.getRequestURI();
-        return fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+        String path = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+        if (path.contains("..")) {
+            throw new IllegalArgumentException(
+                    "Invalid photo path: traversal sequences are not permitted.");
+        }
+        return path;
     }
 
     private String determineContentType(Resource resource) {
