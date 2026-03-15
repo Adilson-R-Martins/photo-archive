@@ -302,6 +302,9 @@ public class PhotoService {
      *         or if the file content cannot be read.
      */
     private void validateFileType(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Upload file is empty. Please attach a valid image file.");
+        }
         try (InputStream in = file.getInputStream()) {
             String detected = TIKA.detect(in, file.getOriginalFilename());
             if (!ALLOWED_TYPES.contains(detected)) {
