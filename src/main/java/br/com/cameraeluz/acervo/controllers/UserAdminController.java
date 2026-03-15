@@ -1,17 +1,13 @@
 package br.com.cameraeluz.acervo.controllers;
 
-import br.com.cameraeluz.acervo.models.Role;
-import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.payload.response.MessageResponse;
-import br.com.cameraeluz.acervo.repositories.RoleRepository;
-import br.com.cameraeluz.acervo.repositories.UserRepository;
+import br.com.cameraeluz.acervo.services.UserAdminService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -25,8 +21,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UserAdminController {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserAdminService userAdminService;
 
     /**
      * Replaces the full set of roles assigned to a user.
@@ -46,21 +41,7 @@ public class UserAdminController {
             @PathVariable Long id,
             @RequestBody Set<String> roles) {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User with id " + id + " was not found."));
-
-        Set<Role> newRoles = new HashSet<>();
-        for (String roleName : roles) {
-            Role role = roleRepository.findByName(roleName)
-                    .orElseThrow(() -> new EntityNotFoundException(
-                            "Role '" + roleName + "' was not found. "
-                            + "Valid roles: ROLE_ADMIN, ROLE_EDITOR, ROLE_AUTHOR, ROLE_GUEST, ROLE_USER."));
-            newRoles.add(role);
-        }
-
-        user.setRoles(newRoles);
-        userRepository.save(user);
-
+        userAdminService.updateUserRoles(id, roles);
         return ResponseEntity.ok(new MessageResponse("User roles updated successfully."));
     }
 
@@ -78,12 +59,7 @@ public class UserAdminController {
             @PathVariable Long id,
             @RequestParam boolean active) {
 
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User with id " + id + " was not found."));
-
-        user.setActive(active);
-        userRepository.save(user);
-
+        userAdminService.updateUserStatus(id, active);
         return ResponseEntity.ok(new MessageResponse(
                 String.format("User account %s successfully.", active ? "activated" : "deactivated")));
     }
