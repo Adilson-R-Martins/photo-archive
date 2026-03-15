@@ -3,12 +3,10 @@ package br.com.cameraeluz.acervo.controllers;
 import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import br.com.cameraeluz.acervo.dto.PhotoUpdateDTO;
 import br.com.cameraeluz.acervo.models.Photo;
-import br.com.cameraeluz.acervo.repositories.PhotoRepository;
 import br.com.cameraeluz.acervo.security.SecurityUtils;
 import br.com.cameraeluz.acervo.services.DownloadPermissionService;
 import br.com.cameraeluz.acervo.services.FileStorageService;
 import br.com.cameraeluz.acervo.services.PhotoService;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +43,6 @@ public class PhotoController {
 
     private final FileStorageService fileStorageService;
     private final PhotoService photoService;
-    private final PhotoRepository photoRepository;
     private final DownloadPermissionService downloadPermissionService;
 
     /**
@@ -62,8 +59,7 @@ public class PhotoController {
     public ResponseEntity<Resource> viewPhoto(HttpServletRequest request) {
         String path = extractPath(request, "/api/photos/view/");
 
-        Photo photo = photoRepository.findByWebOptimizedPath(path)
-                .orElseThrow(() -> new EntityNotFoundException("Photo was not found at the requested path."));
+        Photo photo = photoService.findByWebOptimizedPath(path);
 
         if (!photo.isActive()) {
             return ResponseEntity.status(HttpStatus.GONE).build();
@@ -125,8 +121,7 @@ public class PhotoController {
             @PathVariable Long photoId,
             Authentication authentication) {
 
-        Photo photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new EntityNotFoundException("Photo not found with id: " + photoId));
+        Photo photo = photoService.findById(photoId);
 
         if (!photo.isActive()) {
             return ResponseEntity.status(HttpStatus.GONE).build();

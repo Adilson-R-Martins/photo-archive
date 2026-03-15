@@ -226,6 +226,34 @@ public class PhotoService {
         return convertToDTO(photoRepository.save(photo));
     }
 
+    /**
+     * Retrieves a photo by its web-optimised file path.
+     *
+     * @param path the relative web-optimised path as stored in the database.
+     * @return the matching {@link Photo} entity.
+     * @throws EntityNotFoundException if no photo matches the given path.
+     */
+    @Transactional(readOnly = true)
+    public Photo findByWebOptimizedPath(String path) {
+        return photoRepository.findByWebOptimizedPath(path)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Photo was not found at the requested path."));
+    }
+
+    /**
+     * Retrieves a photo by its primary key.
+     *
+     * @param id the photo id.
+     * @return the matching {@link Photo} entity.
+     * @throws EntityNotFoundException if no photo with the given id exists.
+     */
+    @Transactional(readOnly = true)
+    public Photo findById(Long id) {
+        return photoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Photo not found with id: " + id));
+    }
+
     private ExifDataDTO toExifDataDTO(ExifData exif) {
         if (exif == null) {
             return null;
