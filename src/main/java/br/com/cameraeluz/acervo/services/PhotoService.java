@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.services;
 
+import br.com.cameraeluz.acervo.dto.ExifDataDTO;
 import br.com.cameraeluz.acervo.dto.PhotoResponseDTO;
 import br.com.cameraeluz.acervo.dto.PhotoUpdateDTO;
 import br.com.cameraeluz.acervo.models.Category;
@@ -87,7 +88,7 @@ public class PhotoService {
         dto.setId(photo.getId());
         dto.setTitle(photo.getTitle());
         dto.setArtisticAuthorName(photo.getArtisticAuthorName());
-        dto.setMetadata(photo.getExifData());
+        dto.setMetadata(toExifDataDTO(photo.getExifData()));
 
         dto.setViewUrl(baseUrl + "/api/photos/view/" + photo.getWebOptimizedPath());
         dto.setDownloadUrl(baseUrl + "/api/photos/download/" + photo.getId());
@@ -217,6 +218,26 @@ public class PhotoService {
         }
 
         return convertToDTO(photoRepository.save(photo));
+    }
+
+    private ExifDataDTO toExifDataDTO(ExifData exif) {
+        if (exif == null) {
+            return null;
+        }
+        ExifDataDTO dto = new ExifDataDTO();
+        dto.setIptcTitle(exif.getTitle());
+        dto.setCameraModel(exif.getCameraModel());
+        dto.setLens(exif.getLens());
+        dto.setFocalLength(exif.getFocalLength());
+        dto.setAperture(exif.getAperture());
+        dto.setShutterSpeed(exif.getShutterSpeed());
+        dto.setIso(exif.getIso());
+        dto.setCaptureDate(exif.getCaptureDate());
+        dto.setSoftware(exif.getSoftware());
+        dto.setCopyright(exif.getCopyright());
+        dto.setKeywords(exif.getKeywords());
+        dto.setDescription(exif.getDescription());
+        return dto;
     }
 
     /**
