@@ -5,12 +5,14 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 
 /**
  * Represents a photography event, such as a contest or exhibition.
  */
+@BatchSize(size = 10)
 @Entity
 @Table(name = "events")
 @Getter

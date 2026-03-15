@@ -4,12 +4,14 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 /**
  * Entity representing the possible results a photo can achieve in an event.
  * Examples: 1st Place, 2nd Place, Acceptance, Honorable Mention.
  * This is managed by the administrator.
  */
+@BatchSize(size = 10)
 @Entity
 @Table(name = "result_types")
 @Getter
