@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 
@@ -31,14 +32,22 @@ public class PhotoEventTrack {
 
     /**
      * The event where the photo participated.
+     *
+     * <p>@BatchSize instructs Hibernate to load up to 10 Event rows per SQL round-trip
+     * when this association is accessed across a collection of PhotoEventTrack objects,
+     * reducing the N+1 effect when building search result DTOs.</p>
      */
+    @BatchSize(size = 10)
     @ManyToOne(optional = false)
     @JoinColumn(name = "event_id")
     private Event event;
 
     /**
      * The official result achieved (e.g., 1st Place, Acceptance).
+     *
+     * <p>@BatchSize mirrors the same batching strategy applied to {@link #event}.</p>
      */
+    @BatchSize(size = 10)
     @ManyToOne(optional = false)
     @JoinColumn(name = "result_type_id", nullable = false)
     private ResultType resultType;

@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
 
+import static jakarta.persistence.FetchType.LAZY;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -38,7 +40,9 @@ public class Photo {
     /**
      * Reference to the system user (Author) who performed the upload.
      */
-    @ManyToOne
+    // FetchType.LAZY: prevents the associated User from being loaded on every Photo query.
+    // The uploader is only needed for ownership checks and is rarely required in list views.
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User uploadedBy;
 
