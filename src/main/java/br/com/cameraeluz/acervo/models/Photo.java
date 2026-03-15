@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -50,10 +51,12 @@ public class Photo {
             joinColumns = @JoinColumn(name = "photo_id"),
             inverseJoinColumns = @JoinColumn(name = "category_id")
     )
+    @BatchSize(size = 20)
     private Set<Category> categories;
 
     @JsonIgnore
     @OneToMany(mappedBy = "photo")
+    @BatchSize(size = 20)
     private Set<PhotoEventTrack> eventTracks;
 
     @Embedded
