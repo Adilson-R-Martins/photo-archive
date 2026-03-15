@@ -17,13 +17,13 @@ import java.util.Optional;
 @Repository
 public interface PhotoRepository extends JpaRepository<Photo, Long>, JpaSpecificationExecutor<Photo> {
 
-    // Busca apenas fotos ativas para a galeria geral
+    /** Returns all active photos. */
     List<Photo> findAllByActiveTrue();
 
-    // Busca fotos ativas de um autor específico (útil para o perfil do fotógrafo)
+    /** Returns all active photos uploaded by the given user. */
     List<Photo> findByUploadedByAndActiveTrue(User user);
 
-    // Versão paginada para performance
+    /** Returns a paginated list of active photos. */
     Page<Photo> findAllByActiveTrue(Pageable pageable);
 
     Optional<Photo> findByWebOptimizedPath(String webOptimizedPath);

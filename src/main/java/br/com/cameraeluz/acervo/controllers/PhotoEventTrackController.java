@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tracks")
-@RequiredArgsConstructor // <-- Substitui todos os seus @Autowired!
+@RequiredArgsConstructor
 public class PhotoEventTrackController {
 
     private final PhotoEventTrackService trackService;
