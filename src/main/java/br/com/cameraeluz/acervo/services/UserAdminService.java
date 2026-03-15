@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.services;
 
+import br.com.cameraeluz.acervo.dto.UserSummaryDTO;
 import br.com.cameraeluz.acervo.models.Role;
 import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.repositories.RoleRepository;
@@ -7,11 +8,14 @@ import br.com.cameraeluz.acervo.repositories.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service for admin-level user account management operations.
@@ -27,6 +31,32 @@ public class UserAdminService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+
+    /**
+     * Returns a paginated list of all user accounts.
+     *
+     * @param pageable pagination and sorting parameters.
+     * @return a {@link Page} of {@link UserSummaryDTO}.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserSummaryDTO> listUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(this::toSummaryDTO);
+    }
+
+    /**
+     * Returns the detail of a single user account.
+     *
+     * @param id the user id.
+     * @return the user as a {@link UserSummaryDTO}.
+     * @throws EntityNotFoundException if no user with the given id exists.
+     */
+    @Transactional(readOnly = true)
+    public UserSummaryDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "User with id " + id + " was not found."));
+        return toSummaryDTO(user);
+    }
 
     /**
      * Replaces the full set of roles assigned to a user.
@@ -60,6 +90,19 @@ public class UserAdminService {
 
         user.setRoles(newRoles);
         userRepository.save(user);
+    }
+
+    private UserSummaryDTO toSummaryDTO(User user) {
+        UserSummaryDTO dto = new UserSummaryDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setArtisticName(user.getArtisticName());
+        dto.setActive(user.isActive());
+        dto.setRoles(user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet()));
+        return dto;
     }
 
     /**
