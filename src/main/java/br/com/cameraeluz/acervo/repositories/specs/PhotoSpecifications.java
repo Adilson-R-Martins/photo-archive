@@ -59,7 +59,20 @@ public class PhotoSpecifications {
 
             // 3. Metadata Keywords (Title and Technical Data)
             if (keyword != null && !keyword.trim().isEmpty()) {
-                String pattern = "%" + keyword.toLowerCase() + "%";
+                // Truncate to prevent oversized patterns from scanning all EXIF columns.
+                String normalized = keyword.trim();
+                if (normalized.length() > 200) {
+                    normalized = normalized.substring(0, 200);
+                }
+
+                // Escape LIKE metacharacters so user input is treated as a literal string.
+                // Without escaping, a keyword like "%_%" would match every row.
+                String escaped = normalized.toLowerCase()
+                        .replace("\\", "\\\\")
+                        .replace("%", "\\%")
+                        .replace("_", "\\_");
+                String pattern = "%" + escaped + "%";
+                char escapeChar = '\\';
 
                 // ExifData fields only
                 String[] exifFields = {"cameraModel", "lens", "aperture", "shutterSpeed", "iso",
@@ -68,11 +81,11 @@ public class PhotoSpecifications {
                 List<Predicate> orPredicates = new ArrayList<>();
 
                 // Match against the photo's primary title.
-                orPredicates.add(cb.like(cb.lower(root.get("title")), pattern));
+                orPredicates.add(cb.like(cb.lower(root.get("title")), pattern, escapeChar));
 
                 // Match against EXIF/IPTC metadata fields.
                 for (String field : exifFields) {
-                    orPredicates.add(cb.like(cb.lower(root.get("exifData").get(field)), pattern));
+                    orPredicates.add(cb.like(cb.lower(root.get("exifData").get(field)), pattern, escapeChar));
                 }
 
                 predicates.add(cb.or(orPredicates.toArray(new Predicate[0])));
