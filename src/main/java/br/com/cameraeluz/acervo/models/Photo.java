@@ -62,21 +62,23 @@ public class Photo {
     @Embedded
     private ExifData exifData;
 
-    // File Management Fields
     @Column(name = "original_file_name")
     private String originalFileName;
 
+    /** Relative path to the original high-resolution file within the upload directory. */
     @Column(name = "storage_path")
-    private String storagePath; // Local or Cloud path for the original file
+    private String storagePath;
 
+    /** Relative path to the web-optimised (max 1280×1280, q=0.8) version of the file. */
     @Column(name = "web_optimized_path")
-    private String webOptimizedPath; // Path for the version resized for browser view
+    private String webOptimizedPath;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @Column(nullable = false)
-    private boolean active = true; // Define como true por padrão para novas fotos
+    /** Whether this photo is active. Inactive photos are soft-deleted and hidden from all queries. */
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean active = true;
 
     /**
      * Automatically sets the creation timestamp before saving to database.
