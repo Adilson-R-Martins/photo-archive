@@ -3,6 +3,7 @@ package br.com.cameraeluz.acervo.security;
 import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -32,8 +33,16 @@ public class UserDetailsServiceImpl implements org.springframework.security.core
      * @return a fully populated {@link UserDetails} object (never {@code null}).
      * @throws UsernameNotFoundException if no user with the given username exists.
      */
+    /**
+     * Cache key is the username. The cache is invalidated by {@code UserAdminService}
+     * whenever an admin changes a user's roles or active status, ensuring the stale
+     * UserDetails object does not survive beyond the next admin action.
+     * The Caffeine TTL (5 minutes, configured via spring.cache.caffeine.spec) provides
+     * a safety-net expiry in case eviction is missed.
+     */
     @Override
     @Transactional
+    @Cacheable(value = "userDetails", key = "#username")
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));

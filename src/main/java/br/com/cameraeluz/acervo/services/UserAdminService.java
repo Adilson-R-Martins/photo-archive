@@ -6,6 +6,7 @@ import br.com.cameraeluz.acervo.repositories.RoleRepository;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +40,11 @@ public class UserAdminService {
      *                  (e.g., {@code "ROLE_EDITOR"}, {@code "ROLE_AUTHOR"}).
      * @throws EntityNotFoundException if no user or role with the given id/name exists.
      */
+    // allEntries = true clears the entire userDetails cache on any role change.
+    // A username-keyed eviction would be more surgical but would require an extra
+    // username lookup by userId; clearing all is simpler and correct for low-frequency ops.
     @Transactional
+    @CacheEvict(value = "userDetails", allEntries = true)
     public void updateUserRoles(Long userId, Set<String> roleNames) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User with id " + userId + " was not found."));
@@ -65,6 +70,7 @@ public class UserAdminService {
      * @throws EntityNotFoundException if no user with the given id exists.
      */
     @Transactional
+    @CacheEvict(value = "userDetails", allEntries = true)
     public void updateUserStatus(Long userId, boolean active) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User with id " + userId + " was not found."));
