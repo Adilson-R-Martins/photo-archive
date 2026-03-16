@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,8 +15,15 @@ import java.util.List;
 /**
  * REST controller for managing photo participation records in events.
  *
- * <p>Allows ADMIN and EDITOR roles to register a photo in an event with a result
- * and any honors received. Read endpoints are accessible to all authenticated users.</p>
+ * <p>Allows EDITOR and ADMIN roles to register a photo in an event with a result
+ * and any honors received. Read endpoints are accessible to all authenticated users
+ * but are scoped to photos the caller is permitted to see.</p>
+ *
+ * <h2>IDOR prevention</h2>
+ * <p>The {@link Authentication} context is forwarded to the service layer for all
+ * read operations. {@link PhotoEventTrackService} applies the photo visibility policy
+ * before returning any event history, preventing callers from discovering participation
+ * data for PRIVATE photos they do not have access to.</p>
  */
 @RestController
 @RequestMapping("/api/tracks")
@@ -38,28 +46,40 @@ public class PhotoEventTrackController {
     }
 
     /**
-     * Returns the full event history of a specific photo.
+     * Returns the full event history of a specific photo, subject to visibility.
      *
-     * @param photoId the id of the photo whose participation history is requested.
+     * <p>Returns {@code 403 Forbidden} if the photo exists but is not visible to
+     * the caller (e.g., PRIVATE photo without an active DownloadPermission).</p>
+     *
+     * @param photoId        the id of the photo whose participation history is requested.
+     * @param authentication the caller's authentication context.
      * @return a list of participation records for the given photo.
      */
     @GetMapping("/photo/{photoId}")
     @PreAuthorize("hasRole('GUEST')")
     public ResponseEntity<List<PhotoEventTrackResponseDTO>> getTracksByPhoto(
-            @PathVariable Long photoId) {
-        return ResponseEntity.ok(trackService.findByPhoto(photoId));
+            @PathVariable Long photoId,
+            Authentication authentication) {
+        return ResponseEntity.ok(trackService.findByPhoto(photoId, authentication));
     }
 
     /**
-     * Returns all photo participations registered for a specific event.
+     * Returns all photo participations for a specific event that are visible to
+     * the caller.
      *
-     * @param eventId the id of the event whose photo entries are requested.
-     * @return a list of participation records for the given event.
+     * <p>Tracks for PRIVATE photos that the caller cannot see are silently omitted
+     * from the response. The total count of event participants is therefore not leaked
+     * to unauthorized callers.</p>
+     *
+     * @param eventId        the id of the event whose photo entries are requested.
+     * @param authentication the caller's authentication context.
+     * @return a filtered list of participation records for the given event.
      */
     @GetMapping("/event/{eventId}")
     @PreAuthorize("hasRole('GUEST')")
     public ResponseEntity<List<PhotoEventTrackResponseDTO>> getTracksByEvent(
-            @PathVariable Long eventId) {
-        return ResponseEntity.ok(trackService.findByEvent(eventId));
+            @PathVariable Long eventId,
+            Authentication authentication) {
+        return ResponseEntity.ok(trackService.findByEvent(eventId, authentication));
     }
 }
