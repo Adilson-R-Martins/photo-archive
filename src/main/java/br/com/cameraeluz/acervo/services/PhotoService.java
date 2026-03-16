@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -53,9 +54,11 @@ import java.util.stream.Collectors;
  *       endpoints ({@code /view/**} and {@code /{id}}).</li>
  * </ul>
  *
- * <p>Write paths ({@link #uploadPhoto}, {@link #updatePhoto}) accept an
- * explicit {@link Visibility} value so callers can set the tier at
- * creation/update time. New uploads default to {@link Visibility#PRIVATE}.</p>
+ * <p>Write paths ({@link #uploadPhoto}, {@link #updatePhoto}, {@link #deletePhoto})
+ * accept an explicit {@link Visibility} value and an {@link Authentication} context.
+ * Ownership is verified inside the service via {@link #assertCanModify} using the
+ * entity already loaded for the operation — eliminating the TOCTOU double-query
+ * pattern that previously existed in the {@code @PreAuthorize} SpEL expression.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -239,18 +242,37 @@ public class PhotoService {
     }
 
     /**
-     * Checks whether the given username is the owner (uploader) of a photo.
+     * Asserts that the caller is permitted to modify (update or delete) the given photo.
      *
-     * @param username the username of the caller.
-     * @param photoId  the id of the photo to check ownership for.
-     * @return {@code true} if the caller uploaded the photo; {@code false} otherwise.
-     * @throws EntityNotFoundException if no photo with the given id exists.
+     * <p>Permission is granted to:</p>
+     * <ol>
+     *   <li>ADMIN and EDITOR — full moderation access, no ownership required.</li>
+     *   <li>The uploading author — identified by comparing the caller's user id
+     *       (from the JWT) against the photo's {@code uploadedBy.id} field.</li>
+     * </ol>
+     *
+     * <p>ID-based comparison is used (not username) because usernames are mutable
+     * in principle; using the immutable surrogate key avoids a future vulnerability
+     * if a profile-update endpoint is added later.</p>
+     *
+     * <p>The photo's {@code uploadedBy} association is assumed to be eagerly loaded
+     * by the repository (via {@code @EntityGraph}), so no additional query is needed.</p>
+     *
+     * @param photo the photo entity whose ownership is checked.
+     * @param auth  the caller's authentication context.
+     * @throws AccessDeniedException if the caller is neither a privileged role nor
+     *                               the uploading author.
      */
-    @Transactional(readOnly = true)
-    public boolean isOwner(String username, Long photoId) {
-        Photo photo = photoRepository.findById(photoId)
-                .orElseThrow(() -> new EntityNotFoundException("Photo with id " + photoId + " was not found."));
-        return photo.getUploadedBy().getUsername().equals(username);
+    private void assertCanModify(Photo photo, Authentication auth) {
+        Collection<String> roles = SecurityUtils.extractRoles(auth);
+        if (roles.contains("ROLE_ADMIN") || roles.contains("ROLE_EDITOR")) {
+            return;
+        }
+        Long callerId = SecurityUtils.getUserDetails(auth).getId();
+        if (!photo.getUploadedBy().getId().equals(callerId)) {
+            throw new AccessDeniedException(
+                    "You do not have permission to modify photo with id " + photo.getId() + ".");
+        }
     }
 
     /**
@@ -388,15 +410,26 @@ public class PhotoService {
      * Updates mutable fields of an existing photo (title, artistic name, active flag,
      * visibility, or category set). Only non-null fields in the DTO are applied.
      *
-     * @param id  the id of the photo to update.
-     * @param dto the partial update data.
+     * <p>Ownership is verified inside this method via {@link #assertCanModify}: the
+     * single {@code findById} call loads the entity and the guard uses the already-loaded
+     * {@code uploadedBy} association — no additional database round-trip is needed.
+     * The {@code @PreAuthorize} annotation on the controller is therefore simplified to
+     * a role check only, eliminating the previous double-query TOCTOU pattern.</p>
+     *
+     * @param id   the id of the photo to update.
+     * @param dto  the partial update data.
+     * @param auth the caller's authentication context, used for ownership verification.
      * @return the updated photo as a {@link PhotoResponseDTO}.
      * @throws EntityNotFoundException if no photo or category with the given id exists.
+     * @throws AccessDeniedException   if the caller is neither a privileged role nor the
+     *                                 uploading author.
      */
     @Transactional
-    public PhotoResponseDTO updatePhoto(Long id, PhotoUpdateDTO dto) {
+    public PhotoResponseDTO updatePhoto(Long id, PhotoUpdateDTO dto, Authentication auth) {
         Photo photo = photoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Photo with id " + id + " was not found."));
+
+        assertCanModify(photo, auth);
 
         if (dto.getTitle() != null) photo.setTitle(dto.getTitle());
         if (dto.getArtisticAuthorName() != null) photo.setArtisticAuthorName(dto.getArtisticAuthorName());
@@ -413,6 +446,29 @@ public class PhotoService {
         }
 
         return convertToDTO(photoRepository.save(photo));
+    }
+
+    /**
+     * Soft-deletes a photo by setting its {@code active} flag to {@code false}.
+     *
+     * <p>Ownership is verified inside this method via {@link #assertCanModify} using
+     * the same single-query pattern as {@link #updatePhoto}.</p>
+     *
+     * @param id   the id of the photo to deactivate.
+     * @param auth the caller's authentication context, used for ownership verification.
+     * @throws EntityNotFoundException if no photo with the given id exists.
+     * @throws AccessDeniedException   if the caller is neither a privileged role nor the
+     *                                 uploading author.
+     */
+    @Transactional
+    public void deletePhoto(Long id, Authentication auth) {
+        Photo photo = photoRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Photo with id " + id + " was not found."));
+
+        assertCanModify(photo, auth);
+
+        photo.setActive(false);
+        photoRepository.save(photo);
     }
 
     // -------------------------------------------------------------------------

@@ -248,39 +248,51 @@ public class PhotoController {
     /**
      * Updates mutable fields of an existing photo.
      *
-     * <p>Callers must be ADMIN, EDITOR, or the photo's original uploader.
-     * All fields in {@link PhotoUpdateDTO} are optional — only non-null values are
+     * <p>The transport layer allows AUTHOR+ (filter chain). Fine-grained ownership
+     * verification — ADMIN/EDITOR may edit any photo; AUTHOR may only edit their own —
+     * is enforced inside {@link PhotoService#updatePhoto} via a single entity load.
+     * This eliminates the previous double-query TOCTOU pattern where
+     * {@code @photoService.isOwner()} and the service method each called
+     * {@code findById} independently.</p>
+     *
+     * <p>All fields in {@link PhotoUpdateDTO} are optional — only non-null values are
      * applied. This includes {@link Visibility}: set it to promote or restrict
      * access without affecting other fields.</p>
      *
-     * @param id  the id of the photo to update.
-     * @param dto the partial update payload.
+     * @param id             the id of the photo to update.
+     * @param dto            the partial update payload.
+     * @param authentication the caller's authentication context.
      * @return the updated photo as a {@link PhotoResponseDTO}.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR') or @photoService.isOwner(authentication.name, #id)")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<PhotoResponseDTO> updatePhoto(
             @PathVariable Long id,
-            @Valid @RequestBody PhotoUpdateDTO dto) {
-        return ResponseEntity.ok(photoService.updatePhoto(id, dto));
+            @Valid @RequestBody PhotoUpdateDTO dto,
+            Authentication authentication) {
+        return ResponseEntity.ok(photoService.updatePhoto(id, dto, authentication));
     }
 
     /**
      * Soft-deletes a photo by setting its {@code active} flag to {@code false}.
      *
-     * <p>Callers must be ADMIN, EDITOR, or the photo's original uploader.
-     * Soft-deleted photos are hidden from all queries and their view URL returns
-     * {@code 410 Gone}.</p>
+     * <p>The transport layer allows AUTHOR+. Ownership is verified inside
+     * {@link PhotoService#deletePhoto} — ADMIN/EDITOR may delete any photo;
+     * AUTHOR may only delete their own.</p>
      *
-     * @param id the id of the photo to deactivate.
+     * <p>Soft-deleted photos are hidden from all queries and their view URL
+     * returns {@code 410 Gone}.</p>
+     *
+     * @param id             the id of the photo to deactivate.
+     * @param authentication the caller's authentication context.
      * @return {@code 204 No Content} on success.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR') or @photoService.isOwner(authentication.name, #id)")
-    public ResponseEntity<Void> deletePhoto(@PathVariable Long id) {
-        PhotoUpdateDTO softDeleteDto = new PhotoUpdateDTO();
-        softDeleteDto.setActive(false);
-        photoService.updatePhoto(id, softDeleteDto);
+    @PreAuthorize("hasRole('AUTHOR')")
+    public ResponseEntity<Void> deletePhoto(
+            @PathVariable Long id,
+            Authentication authentication) {
+        photoService.deletePhoto(id, authentication);
         return ResponseEntity.noContent().build();
     }
 
