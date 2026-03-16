@@ -1,11 +1,14 @@
 package br.com.cameraeluz.acervo.repositories.specs;
 
+import br.com.cameraeluz.acervo.models.DownloadPermission;
 import br.com.cameraeluz.acervo.models.Photo;
 import br.com.cameraeluz.acervo.models.PhotoEventTrack;
 import br.com.cameraeluz.acervo.models.enums.Visibility;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
@@ -28,8 +31,11 @@ import java.util.List;
  *       restriction — all photos regardless of tier are returned to support
  *       content moderation workflows.</li>
  *   <li><strong>Regular authenticated callers</strong> ({@code callerId != null}):
- *       {@link Visibility#OPEN}, {@link Visibility#PUBLIC}, and
- *       {@link Visibility#PRIVATE} photos uploaded by the caller.</li>
+ *       {@link Visibility#OPEN}, {@link Visibility#PUBLIC},
+ *       {@link Visibility#PRIVATE} photos uploaded by the caller, and
+ *       {@link Visibility#PRIVATE} photos for which the caller holds an
+ *       active (non-revoked, non-exhausted)
+ *       {@link br.com.cameraeluz.acervo.models.DownloadPermission}.</li>
  *   <li><strong>Unauthenticated callers</strong> ({@code callerId == null},
  *       {@code isPrivileged == false}): only {@link Visibility#OPEN} photos.
  *       This path is included for completeness; listing endpoints currently
@@ -52,6 +58,14 @@ public class PhotoSpecifications {
      * @param isPrivileged {@code true} if the caller holds the ADMIN or EDITOR role, bypassing
      *                     all visibility restrictions to support content moderation.
      * @return a dynamic {@link Specification} ready to be passed to a JPA repository.
+     *
+     * @implNote The {@link Visibility#PRIVATE} + active-permission branch uses a
+     *           correlated {@code EXISTS} subquery against {@code download_permissions}
+     *           (filtered by {@code is_revoked = false AND download_count < download_limit}).
+     *           This subquery is evaluated per row by the database engine; indexes on
+     *           {@code (user_id, photo_id)} on the permissions table keep it efficient.
+     *           The subquery is skipped when {@code query} is {@code null} to guard
+     *           against edge-case invocations outside of a full criteria context.
      */
     public static Specification<Photo> withAdvancedFilters(
             Long authorId, Long eventId, Long resultTypeId, String keyword,
@@ -134,11 +148,32 @@ public class PhotoSpecifications {
                     // PUBLIC photos are visible to any authenticated user.
                     visibilityOr.add(cb.equal(root.get("visibility"), Visibility.PUBLIC));
 
-                    // PRIVATE photos are visible only to the uploading author.
+                    // PRIVATE: visible to the uploading author.
                     visibilityOr.add(cb.and(
                             cb.equal(root.get("visibility"), Visibility.PRIVATE),
                             cb.equal(root.get("uploadedBy").get("id"), callerId)
                     ));
+
+                    // PRIVATE: visible to any user who holds an active DownloadPermission.
+                    // "Active" means the permission is not revoked and the download quota
+                    // has not been exhausted (downloadCount < downloadLimit).
+                    // The correlated EXISTS subquery is guarded by a null-check on `query`
+                    // because subquery creation requires a non-null CriteriaQuery context.
+                    if (query != null) {
+                        Subquery<Integer> permSub = query.subquery(Integer.class);
+                        Root<DownloadPermission> dp = permSub.from(DownloadPermission.class);
+                        permSub.select(cb.literal(1))
+                                .where(
+                                        cb.equal(dp.get("user").get("id"), callerId),
+                                        cb.equal(dp.get("photo").get("id"), root.get("id")),
+                                        cb.isFalse(dp.get("revoked")),
+                                        cb.lessThan(dp.get("downloadCount"), dp.get("downloadLimit"))
+                                );
+                        visibilityOr.add(cb.and(
+                                cb.equal(root.get("visibility"), Visibility.PRIVATE),
+                                cb.exists(permSub)
+                        ));
+                    }
                 }
 
                 predicates.add(cb.or(visibilityOr.toArray(new Predicate[0])));

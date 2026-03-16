@@ -57,4 +57,33 @@ public interface DownloadPermissionRepository extends JpaRepository<DownloadPerm
     /** Returns a page of permissions granted to a given user (admin/editor listing). */
     @Query("SELECT dp FROM DownloadPermission dp WHERE dp.user.id = :userId")
     Page<DownloadPermission> findAllByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * Returns {@code true} if the given user holds an <em>active</em> download permission
+     * for the given photo.
+     *
+     * <p>A permission is considered active when both conditions hold:</p>
+     * <ul>
+     *   <li>{@code is_revoked = false} — the permission has not been explicitly revoked.</li>
+     *   <li>{@code download_count < download_limit} — the usage quota has not been exhausted.</li>
+     * </ul>
+     *
+     * <p>This method is used by the visibility system to grant read access (view + listing)
+     * to {@link br.com.cameraeluz.acervo.models.enums.Visibility#PRIVATE} photos for users
+     * who hold an active permission — without acquiring the PESSIMISTIC_WRITE lock that
+     * is required only during the download counter increment path.</p>
+     *
+     * @param userId  the id of the user whose permission is checked.
+     * @param photoId the id of the photo being accessed.
+     * @return {@code true} if an active permission exists; {@code false} otherwise.
+     */
+    @Query("SELECT COUNT(dp) > 0 FROM DownloadPermission dp " +
+           "WHERE dp.user.id = :userId " +
+           "AND dp.photo.id = :photoId " +
+           "AND dp.revoked = false " +
+           "AND dp.downloadCount < dp.downloadLimit")
+    boolean hasActivePermission(
+            @Param("userId") Long userId,
+            @Param("photoId") Long photoId
+    );
 }

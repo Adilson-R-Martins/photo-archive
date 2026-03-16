@@ -46,9 +46,22 @@ public enum Visibility {
     PUBLIC,
 
     /**
-     * Access restricted to the uploading author, ADMIN, and EDITOR.
-     * The photo is hidden from other users' search results and its view URL
-     * returns {@code 404} to prevent disclosure of its existence.
+     * Access restricted to the uploading author, ADMIN, EDITOR, and any user
+     * who holds an <em>active</em>
+     * {@link br.com.cameraeluz.acervo.models.DownloadPermission} for this photo.
+     *
+     * <p>A {@code DownloadPermission} is considered active when it is not revoked
+     * ({@code is_revoked = false}) and the usage quota has not been exhausted
+     * ({@code download_count < download_limit}). This implements the
+     * <em>"shared with me"</em> access model: a user who has been explicitly
+     * granted permission to download a photo is also allowed to view it —
+     * consistent with the principle that a download permission implies a
+     * view permission for the same resource.</p>
+     *
+     * <p>Photos in this tier are hidden from search results and listing endpoints
+     * for users who do not meet any of the above conditions. Their view URL
+     * returns {@code 404} (not {@code 403}) to avoid leaking the existence of the
+     * resource to unauthorized callers.</p>
      *
      * <p>This is the default for all new uploads.</p>
      */

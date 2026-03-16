@@ -9,6 +9,7 @@ import br.com.cameraeluz.acervo.models.Photo;
 import br.com.cameraeluz.acervo.models.User;
 import br.com.cameraeluz.acervo.models.enums.Visibility;
 import br.com.cameraeluz.acervo.repositories.CategoryRepository;
+import br.com.cameraeluz.acervo.repositories.DownloadPermissionRepository;
 import br.com.cameraeluz.acervo.repositories.PhotoRepository;
 import br.com.cameraeluz.acervo.repositories.UserRepository;
 import br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications;
@@ -66,6 +67,7 @@ public class PhotoService {
     private final PhotoRepository photoRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final DownloadPermissionRepository downloadPermissionRepository;
     private final FileStorageService fileStorageService;
     private final ImageService imageService;
     private final MetadataService metadataService;
@@ -142,13 +144,17 @@ public class PhotoService {
      *   <li>{@link Visibility#OPEN} — always accessible, even without authentication.</li>
      *   <li>ADMIN / EDITOR — always have full access for content moderation.</li>
      *   <li>{@link Visibility#PUBLIC} — accessible to any authenticated user.</li>
-     *   <li>{@link Visibility#PRIVATE} — accessible only to the photo's uploader.</li>
+     *   <li>{@link Visibility#PRIVATE} + uploader — the photo owner always has access.</li>
+     *   <li>{@link Visibility#PRIVATE} + active {@link br.com.cameraeluz.acervo.models.DownloadPermission}
+     *       — any authenticated user who holds a non-revoked, non-exhausted permission
+     *       for this specific photo is granted view access. This mirrors the "shared with
+     *       me" model: if you can download, you can also see.</li>
      * </ol>
      *
-     * <p>This method is designed to be called from controllers on already-loaded
-     * {@link Photo} entities. The {@code uploadedBy} association is eagerly fetched
-     * by the repository ({@code @EntityGraph}) so it is safe to access on a detached
-     * entity.</p>
+     * <p>This method opens its own read-only transaction so it can query the
+     * {@code download_permissions} table for the PRIVATE + permission-grant path.
+     * The {@code uploadedBy} association is eagerly fetched by the repository
+     * ({@code @EntityGraph}) and is safe to access on the detached entity.</p>
      *
      * @param photo          the photo whose visibility is evaluated.
      * @param authentication the caller's authentication context; may be {@code null}
@@ -156,6 +162,7 @@ public class PhotoService {
      *                       requests (the view endpoint is {@code permitAll}).
      * @return {@code true} if the caller is permitted to view this photo.
      */
+    @Transactional(readOnly = true)
     public boolean isVisibleTo(Photo photo, Authentication authentication) {
         // OPEN photos are always accessible regardless of authentication state.
         if (photo.getVisibility() == Visibility.OPEN) {
@@ -182,11 +189,18 @@ public class PhotoService {
             return true;
         }
 
-        // PRIVATE: only the uploading author may access.
-        // uploadedBy is eagerly fetched by the repository (@EntityGraph) so this
-        // access is safe on a detached entity.
+        // PRIVATE: check uploader first (no extra query needed — uploadedBy is eagerly loaded).
         Long callerId = SecurityUtils.getUserDetails(authentication).getId();
-        return photo.getUploadedBy().getId().equals(callerId);
+        if (photo.getUploadedBy().getId().equals(callerId)) {
+            return true;
+        }
+
+        // PRIVATE: fall back to checking whether the caller holds an active DownloadPermission.
+        // "Active" = not revoked AND download_count < download_limit.
+        // This grants the "shared with me" access: if you are permitted to download,
+        // you are also permitted to view. The read-only query avoids acquiring the
+        // PESSIMISTIC_WRITE lock used by the download counter increment path.
+        return downloadPermissionRepository.hasActivePermission(callerId, photo.getId());
     }
 
     /**
