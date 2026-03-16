@@ -45,6 +45,12 @@ import java.util.Arrays;
  *       controller-layer checks via
  *       {@link br.com.cameraeluz.acervo.services.PhotoService#isVisibleTo}).</li>
  * </ul>
+ *
+ * <h2>Filter-chain authorization principles</h2>
+ * <p>Rules follow the principle of <em>defense in depth</em>: the filter chain enforces
+ * the coarsest role requirement, and the service layer re-validates ownership and
+ * fine-grained permissions. Specific matchers are declared before generic ones so that
+ * Spring Security always picks the most restrictive applicable rule.</p>
  */
 @Configuration
 @EnableMethodSecurity
@@ -118,10 +124,13 @@ public class WebSecurityConfig {
                         // is in DownloadPermissionService. Visibility is orthogonal to downloads.
                         .requestMatchers(HttpMethod.GET, "/api/photos/download/**").authenticated()
 
-                        // Download permission management (specific before generic)
+                        // Download permission management (specific before generic).
+                        // Grant/revoke requires AUTHOR+ because only photo owners can perform these
+                        // actions — GUESTs can never own a photo, so they are excluded at the
+                        // transport layer rather than relying solely on the service-layer check.
                         .requestMatchers(HttpMethod.GET, "/api/downloads/permissions").hasAnyRole("ADMIN", "EDITOR")
-                        .requestMatchers(HttpMethod.POST, "/api/downloads/permissions").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/downloads/permissions/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/downloads/permissions").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/downloads/permissions/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
 
                         // Tracks require any level of authentication
                         .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
@@ -130,6 +139,12 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
                         .requestMatchers(HttpMethod.PUT, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
                         .requestMatchers(HttpMethod.DELETE, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+
+                        // Reference data (categories, events, results) must require authentication
+                        // for consistency and to prevent unauthenticated system probing.
+                        // EventController and ResultTypeController enforce this via @PreAuthorize;
+                        // CategoryController has no annotation, so the filter chain is the sole guard.
+                        .requestMatchers(HttpMethod.GET, "/api/categories").authenticated()
 
                         .anyRequest().authenticated()
                 );
