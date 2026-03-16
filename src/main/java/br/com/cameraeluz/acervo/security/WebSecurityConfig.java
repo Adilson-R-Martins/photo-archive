@@ -25,15 +25,30 @@ import java.util.Arrays;
  * Spring Security configuration for the Photo Archive application.
  *
  * <p>Configures stateless JWT-based authentication, CORS, method-level security,
- * and role-based access control for all API endpoints. Photo visibility is
- * runtime-configurable via the {@code photoarchive.app.photo-visibility} property.</p>
+ * and role-based access control for all API endpoints.</p>
+ *
+ * <h2>Photo visibility</h2>
+ * <p>Access to photo content is governed by a per-photo
+ * {@link br.com.cameraeluz.acervo.models.enums.Visibility} tier rather than a
+ * global runtime toggle. The filter chain grants the minimum necessary access at
+ * the transport layer; fine-grained enforcement is handled at the application layer:</p>
+ * <ul>
+ *   <li>{@code GET /api/photos/view/**} is {@code permitAll} so that
+ *       {@link br.com.cameraeluz.acervo.models.enums.Visibility#OPEN} photos are
+ *       reachable without authentication. The controller enforces the photo's
+ *       visibility tier and returns {@code 404} for inaccessible resources to avoid
+ *       leaking their existence.</li>
+ *   <li>{@code GET /api/photos}, {@code GET /api/photos/search}, and
+ *       {@code GET /api/photos/{id}} require authentication. Results are further
+ *       scoped by the caller's visibility permissions (query-layer filtering via
+ *       {@link br.com.cameraeluz.acervo.repositories.specs.PhotoSpecifications} and
+ *       controller-layer checks via
+ *       {@link br.com.cameraeluz.acervo.services.PhotoService#isVisibleTo}).</li>
+ * </ul>
  */
 @Configuration
 @EnableMethodSecurity
 public class WebSecurityConfig {
-
-    @Value("${photoarchive.app.photo-visibility:PRIVATE}")
-    private String photoVisibility;
 
     /**
      * Comma-separated list of allowed CORS origins.
@@ -74,9 +89,6 @@ public class WebSecurityConfig {
      * JWT filter injected before the username/password filter, and endpoint-level
      * authorization rules.
      *
-     * <p>Photo visibility is runtime-configurable; PUBLIC mode opens the view
-     * and search endpoints to anonymous users.</p>
-     *
      * @param http the {@link HttpSecurity} builder provided by Spring.
      * @return the built {@link SecurityFilterChain}.
      * @throws Exception if the configuration cannot be applied.
@@ -87,37 +99,41 @@ public class WebSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> {
-                        auth.requestMatchers("/api/auth/**").permitAll()
-                                .requestMatchers("/error").permitAll();
-                        // Photo visibility is runtime-configurable; PUBLIC mode opens view and search to anonymous users.
-                        if ("PUBLIC".equalsIgnoreCase(photoVisibility)) {
-                            auth.requestMatchers("/api/photos/view/**").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/{id}").permitAll();
-                        } else {
-                            auth.requestMatchers("/api/photos/view/**").authenticated()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos").authenticated()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated()
-                                    .requestMatchers(HttpMethod.GET, "/api/photos/{id}").authenticated();
-                        }
-                        // Download: any authenticated user — fine-grained permission check is in DownloadPermissionService
-                        auth.requestMatchers(HttpMethod.GET, "/api/photos/download/**").authenticated()
-                                // Download permission management (order: specific before generic)
-                                .requestMatchers(HttpMethod.GET, "/api/downloads/permissions").hasAnyRole("ADMIN", "EDITOR")
-                                .requestMatchers(HttpMethod.POST, "/api/downloads/permissions").authenticated()
-                                .requestMatchers(HttpMethod.DELETE, "/api/downloads/permissions/**").authenticated()
-                                // Tracks require any level of authentication
-                                .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
-                                // Upload and Edit/Delete (Soft Delete)
-                                .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
-                                .requestMatchers(HttpMethod.PUT, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
-                                .requestMatchers(HttpMethod.DELETE, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
-                                .anyRequest().authenticated();
-                });
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/error").permitAll()
 
-        // authTokenFilter runs before the standard username/password filter (JWT chain).
+                        // View endpoint: open at the filter-chain level so OPEN photos are
+                        // accessible without a JWT. Per-photo visibility is enforced in
+                        // PhotoController.viewPhoto() — inaccessible photos return 404.
+                        .requestMatchers("/api/photos/view/**").permitAll()
+
+                        // Listing and single-photo read endpoints: require authentication.
+                        // Visibility scoping is applied at the query / application layer.
+                        .requestMatchers(HttpMethod.GET, "/api/photos").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/photos/search").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/photos/{id}").authenticated()
+
+                        // Download: any authenticated user — fine-grained permission check
+                        // is in DownloadPermissionService. Visibility is orthogonal to downloads.
+                        .requestMatchers(HttpMethod.GET, "/api/photos/download/**").authenticated()
+
+                        // Download permission management (specific before generic)
+                        .requestMatchers(HttpMethod.GET, "/api/downloads/permissions").hasAnyRole("ADMIN", "EDITOR")
+                        .requestMatchers(HttpMethod.POST, "/api/downloads/permissions").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/downloads/permissions/**").authenticated()
+
+                        // Tracks require any level of authentication
+                        .requestMatchers("/api/tracks/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR", "GUEST")
+
+                        // Upload and Edit/Delete
+                        .requestMatchers(HttpMethod.POST, "/api/photos/upload").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/photos/**").hasAnyRole("ADMIN", "EDITOR", "AUTHOR")
+
+                        .anyRequest().authenticated()
+                );
+
         // rateLimitFilter runs before authTokenFilter so abusive IPs are rejected first,
         // before any DB or JWT processing occurs.
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class)

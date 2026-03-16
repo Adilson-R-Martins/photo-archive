@@ -1,5 +1,6 @@
 package br.com.cameraeluz.acervo.models;
 
+import br.com.cameraeluz.acervo.models.enums.Visibility;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -83,6 +84,21 @@ public class Photo {
     /** Whether this photo is active. Inactive photos are soft-deleted and hidden from all queries. */
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean active = true;
+
+    /**
+     * Access policy for this photo.
+     *
+     * <p>Defaults to {@link Visibility#PRIVATE}: new uploads are invisible to other
+     * users until the author explicitly publishes them. This enforces the
+     * Principle of Least Privilege at the data layer.</p>
+     *
+     * <p>The column is added via {@code src/main/resources/db/V1__add_photo_visibility.sql};
+     * existing rows are set to {@link Visibility#PUBLIC} by that script to preserve
+     * their pre-migration access behaviour.</p>
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private Visibility visibility = Visibility.PRIVATE;
 
     /**
      * Automatically sets the creation timestamp before saving to database.

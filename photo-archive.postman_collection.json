@@ -1,0 +1,419 @@
+{
+  "info": {
+    "name": "Photo Archive API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleção completa de endpoints da Photo Archive API. Após executar POST /auth/signin, o token JWT é salvo automaticamente na variável {{token}} e reutilizado em todas as requisições autenticadas."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/signup", "host": ["{{baseUrl}}"], "path": ["api","auth","signup"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"joao\",\n  \"email\": \"joao@example.com\",\n  \"password\": \"senha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Signin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/signin", "host": ["{{baseUrl}}"], "path": ["api","auth","signin"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"joao\",\n  \"password\": \"senha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Me (perfil próprio)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api","auth","me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Photos",
+      "item": [
+        {
+          "name": "List (paginado)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/photos?page=0&size=20&sort=createdAt,desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","photos"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "createdAt,desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/photos/1", "host": ["{{baseUrl}}"], "path": ["api","photos","1"] }
+          }
+        },
+        {
+          "name": "Search (filtros opcionais)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/photos/search?keyword=natureza&authorId=&eventId=&resultTypeId=&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","photos","search"],
+              "query": [
+                { "key": "keyword",      "value": "natureza",  "description": "Pesquisa livre no título e EXIF" },
+                { "key": "authorId",     "value": "",          "description": "Filtrar por ID do autor (opcional)" },
+                { "key": "eventId",      "value": "",          "description": "Filtrar por ID do evento (opcional)" },
+                { "key": "resultTypeId", "value": "",          "description": "Filtrar por ID do resultado (opcional)" },
+                { "key": "page",         "value": "0" },
+                { "key": "size",         "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "View (imagem otimizada inline)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/photos/view/2024/11/thumbnails/uuid_foto.jpg", "host": ["{{baseUrl}}"], "path": ["api","photos","view","2024","11","thumbnails","uuid_foto.jpg"] }
+          }
+        },
+        {
+          "name": "Download (original)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/photos/download/1", "host": ["{{baseUrl}}"], "path": ["api","photos","download","1"] }
+          }
+        },
+        {
+          "name": "Upload",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/photos/upload", "host": ["{{baseUrl}}"], "path": ["api","photos","upload"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file",               "type": "file",  "src": "",            "description": "Arquivo de imagem (JPEG, PNG, TIFF, WebP)" },
+                { "key": "title",              "type": "text",  "value": "Pôr do sol na Serra" },
+                { "key": "artisticAuthorName", "type": "text",  "value": "",          "description": "Opcional — usa nome artístico do perfil se omitido" },
+                { "key": "visibility",         "type": "text",  "value": "PRIVATE",   "description": "PRIVATE (padrão) | PUBLIC | OPEN" },
+                { "key": "categories",         "type": "text",  "value": "1",         "description": "ID(s) de categoria separados por vírgula" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/photos/1", "host": ["{{baseUrl}}"], "path": ["api","photos","1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Pôr do sol — edição revisada\",\n  \"artisticAuthorName\": \"João Silva\",\n  \"visibility\": \"PUBLIC\",\n  \"categoryIds\": [1, 2]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/photos/1", "host": ["{{baseUrl}}"], "path": ["api","photos","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/events", "host": ["{{baseUrl}}"], "path": ["api","events"] }
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/events", "host": ["{{baseUrl}}"], "path": ["api","events"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Salão Nacional de Fotografia 2025\",\n  \"type\": \"CONTEST\",\n  \"complement\": \"Edição Especial 50 anos\",\n  \"affiliation\": \"FIAP\",\n  \"city\": \"São Paulo\",\n  \"state\": \"SP\",\n  \"country\": \"Brasil\",\n  \"eventDate\": \"2025-06-15\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api","categories"] }
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/categories", "host": ["{{baseUrl}}"], "path": ["api","categories"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Natureza\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Result Types",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/results", "host": ["{{baseUrl}}"], "path": ["api","results"] }
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/results", "host": ["{{baseUrl}}"], "path": ["api","results"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"1º Lugar\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Event Tracks",
+      "item": [
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/tracks", "host": ["{{baseUrl}}"], "path": ["api","tracks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"photoId\": 1,\n  \"eventId\": 1,\n  \"resultTypeId\": 1,\n  \"honorReceived\": \"Medalha de Ouro\",\n  \"notes\": \"Melhor foto da categoria Natureza.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get by Photo",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/tracks/photo/1", "host": ["{{baseUrl}}"], "path": ["api","tracks","photo","1"] }
+          }
+        },
+        {
+          "name": "Get by Event",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/tracks/event/1", "host": ["{{baseUrl}}"], "path": ["api","tracks","event","1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Download Permissions",
+      "item": [
+        {
+          "name": "Grant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/downloads/permissions", "host": ["{{baseUrl}}"], "path": ["api","downloads","permissions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 2,\n  \"photoId\": 1,\n  \"downloadLimit\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "Revoke",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/downloads/permissions/00000000-0000-0000-0000-000000000000", "host": ["{{baseUrl}}"], "path": ["api","downloads","permissions","00000000-0000-0000-0000-000000000000"] }
+          }
+        },
+        {
+          "name": "My Permissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/downloads/permissions/me?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","downloads","permissions","me"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List All (ADMIN/EDITOR)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/downloads/permissions?photoId=&userId=&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","downloads","permissions"],
+              "query": [
+                { "key": "photoId", "value": "", "description": "Filtrar por foto (opcional)" },
+                { "key": "userId",  "value": "", "description": "Filtrar por usuário (opcional)" },
+                { "key": "page",    "value": "0" },
+                { "key": "size",    "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?page=0&size=20&sort=id,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","admin","users"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "id,asc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/admin/users/1", "host": ["{{baseUrl}}"], "path": ["api","admin","users","1"] }
+          }
+        },
+        {
+          "name": "Update Roles",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/admin/users/1/roles", "host": ["{{baseUrl}}"], "path": ["api","admin","users","1","roles"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\"ROLE_EDITOR\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Activate / Deactivate",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/1/status?active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","admin","users","1","status"],
+              "query": [{ "key": "active", "value": "true", "description": "true = ativar | false = desativar" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
