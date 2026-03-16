@@ -4,6 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -88,6 +92,47 @@ public class WebSecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Declares the application's role hierarchy:
+     * {@code ADMIN > EDITOR > AUTHOR > GUEST}.
+     *
+     * <p>This hierarchy means that a user with {@code ROLE_ADMIN} implicitly holds
+     * all lower roles, and so on down the chain. It is wired into
+     * {@link #methodSecurityExpressionHandler} so that {@code @PreAuthorize} expressions
+     * like {@code hasRole('GUEST')} automatically match users with any higher role,
+     * without having to enumerate all roles in every annotation.</p>
+     *
+     * <p><strong>Filter-chain note:</strong> {@code authorizeHttpRequests} rules
+     * ({@code hasRole()}/{@code hasAnyRole()}) use Spring Security's
+     * {@code AuthorizationManager} directly and do <em>not</em> consult this bean
+     * automatically. Those rules therefore continue to list all applicable roles
+     * explicitly to remain self-documenting and correct regardless of framework wiring.</p>
+     */
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("""
+                ROLE_ADMIN > ROLE_EDITOR
+                ROLE_EDITOR > ROLE_AUTHOR
+                ROLE_AUTHOR > ROLE_GUEST
+                """);
+    }
+
+    /**
+     * Wires the {@link RoleHierarchy} into the method-security expression evaluator so
+     * that all {@code @PreAuthorize}, {@code @PostAuthorize}, and related annotations
+     * respect the role hierarchy declared in {@link #roleHierarchy()}.
+     *
+     * <p>Spring Security 6 picks up this bean automatically when
+     * {@link EnableMethodSecurity} is present, replacing the default expression
+     * handler with one that is hierarchy-aware.</p>
+     */
+    @Bean
+    public MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+        return handler;
     }
 
     /**

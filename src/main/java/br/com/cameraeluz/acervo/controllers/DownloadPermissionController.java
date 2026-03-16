@@ -40,13 +40,14 @@ public class DownloadPermissionController {
     /**
      * Grants (or updates) a download permission for a specific user/photo pair.
      *
-     * <p>GUEST users are excluded at this level because they cannot own photos
-     * and therefore can never satisfy the ownership check in the service layer.
-     * Fine-grained authorization (ADMIN/EDITOR vs. photo owner) is still enforced
-     * inside {@link DownloadPermissionService#grantPermission}.</p>
+     * <p>GUEST users are excluded because they cannot own photos and therefore
+     * can never satisfy the ownership check in the service layer. The filter chain
+     * also enforces AUTHOR+ at the transport layer as a second line of defense.
+     * Fine-grained authorization (ADMIN/EDITOR vs. photo owner) is enforced inside
+     * {@link DownloadPermissionService#grantPermission}.</p>
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<DownloadPermissionResponseDTO> grantPermission(
             @Valid @RequestBody DownloadPermissionRequestDTO request,
             Authentication authentication) {
@@ -62,12 +63,12 @@ public class DownloadPermissionController {
     /**
      * Revokes an existing download permission.
      *
-     * <p>GUEST users are excluded at this level for the same reason as
-     * {@link #grantPermission}: they cannot own photos, so they can never
-     * satisfy the ownership check in the service layer.</p>
+     * <p>GUEST users are excluded for the same reason as {@link #grantPermission}:
+     * they cannot own photos, so they can never satisfy the ownership check in the
+     * service layer. The filter chain also enforces AUTHOR+ at the transport layer.</p>
      */
     @DeleteMapping("/{permissionId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<Void> revokePermission(
             @PathVariable UUID permissionId,
             Authentication authentication) {
@@ -112,7 +113,7 @@ public class DownloadPermissionController {
      * @return a paginated list of {@link DownloadPermissionResponseDTO}.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR')")
+    @PreAuthorize("hasRole('EDITOR')")
     public ResponseEntity<Page<DownloadPermissionResponseDTO>> listPermissions(
             @RequestParam(required = false) Long photoId,
             @RequestParam(required = false) Long userId,

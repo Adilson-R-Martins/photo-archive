@@ -233,7 +233,7 @@ public class PhotoController {
      * @return {@code 200 OK} with the persisted photo as a {@link PhotoResponseDTO}.
      */
     @PostMapping("/upload")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR')")
+    @PreAuthorize("hasRole('AUTHOR')")
     public ResponseEntity<PhotoResponseDTO> uploadPhoto(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,

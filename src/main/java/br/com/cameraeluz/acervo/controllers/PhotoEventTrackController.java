@@ -31,7 +31,7 @@ public class PhotoEventTrackController {
      * @return the created participation record as a {@link PhotoEventTrackResponseDTO}.
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('EDITOR')")
+    @PreAuthorize("hasRole('EDITOR')")
     public ResponseEntity<PhotoEventTrackResponseDTO> createTrack(
             @Valid @RequestBody PhotoEventTrackRequestDTO request) {
         return ResponseEntity.ok(trackService.createTrack(request));
@@ -44,7 +44,7 @@ public class PhotoEventTrackController {
      * @return a list of participation records for the given photo.
      */
     @GetMapping("/photo/{photoId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
+    @PreAuthorize("hasRole('GUEST')")
     public ResponseEntity<List<PhotoEventTrackResponseDTO>> getTracksByPhoto(
             @PathVariable Long photoId) {
         return ResponseEntity.ok(trackService.findByPhoto(photoId));
@@ -57,7 +57,7 @@ public class PhotoEventTrackController {
      * @return a list of participation records for the given event.
      */
     @GetMapping("/event/{eventId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'EDITOR', 'AUTHOR', 'GUEST')")
+    @PreAuthorize("hasRole('GUEST')")
     public ResponseEntity<List<PhotoEventTrackResponseDTO>> getTracksByEvent(
             @PathVariable Long eventId) {
         return ResponseEntity.ok(trackService.findByEvent(eventId));
